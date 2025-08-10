@@ -40,7 +40,7 @@ export default function Home() {
     <>
       <Head>
         <title>Daily Doodles</title>
-        <meta name="description" content="A collection of daily doodles from Bluesky" />
+        <meta name="description" content="@ryanjoseph.dev's collection of daily doodles from Bluesky" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
