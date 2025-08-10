@@ -10,7 +10,9 @@ const POLLING_FREQ_SECONDS = Number.parseInt(process.env.DOODLE_POLLING_FREQ_SEC
 const REDIS_SET_NAME = `doodles:processed-uris`;
 const REDIS_SESSION_NAME = `doodles:saved-session`;
 const REDIS_DOODLE_LIST = `doodles:posts`;
+const REDIS_LAST_SEEN_POST = `doodles:last-seen-post`;
 const HASHTAG_TO_WATCH = '#DailyDoodle';
+const SEARCH_BATCH_SIZE = 25;
 
 type DoodlePost = {
   uri: string,
@@ -99,20 +101,81 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
   console.log(`Searching for posts with ${HASHTAG_TO_WATCH}...`);
   
   try {
-    // Search for posts with the hashtag
-    const searchResponse = await agent.app.bsky.feed.searchPosts({
-      q: HASHTAG_TO_WATCH,
-      limit: 100,
-      sort: 'latest'
-    });
+    // Get the most recently seen post URI
+    const lastSeenPostUri = await redis.get(REDIS_LAST_SEEN_POST);
+    console.log(`Last seen post: ${lastSeenPostUri || 'none (first run)'}`);
     
-    const posts = searchResponse.data.posts || [];
-    console.log(`Found ${posts.length} posts with potential doodles`);
+    let allNewPosts: any[] = [];
+    let cursor: string | undefined;
+    let foundLastSeenPost = false;
+    let batchCount = 0;
+    const maxBatches = 20; // Safety limit to prevent infinite loops
     
-    for (const post of posts) {
-      // Only process posts from ryanjoseph.dev
-      if (post.author.handle !== 'ryanjoseph.dev') {
-        continue;
+    // Search in batches until we find the last seen post or hit limits
+    while (!foundLastSeenPost && batchCount < maxBatches) {
+      batchCount++;
+      console.log(`Fetching batch ${batchCount} (${SEARCH_BATCH_SIZE} posts)...`);
+      
+      const searchParams: any = {
+        q: HASHTAG_TO_WATCH,
+        limit: SEARCH_BATCH_SIZE,
+        sort: 'latest'
+      };
+      
+      if (cursor) {
+        searchParams.cursor = cursor;
+      }
+      
+      const searchResponse = await agent.app.bsky.feed.searchPosts(searchParams);
+      const posts = searchResponse.data.posts || [];
+      
+      if (posts.length === 0) {
+        console.log('No more posts found');
+        break;
+      }
+      
+      // Check if we've found the last seen post in this batch
+      for (const post of posts) {
+        if (lastSeenPostUri && post.uri === lastSeenPostUri) {
+          console.log(`Found last seen post at batch ${batchCount}. Stopping search.`);
+          foundLastSeenPost = true;
+          break;
+        }
+        
+        // Only collect posts from ryanjoseph.dev
+        if (post.author.handle === 'ryanjoseph.dev') {
+          allNewPosts.push(post);
+        }
+      }
+      
+      // Update cursor for next batch
+      cursor = searchResponse.data.cursor;
+      if (!cursor) {
+        console.log('No more pages available');
+        break;
+      }
+      
+      // If this is the first run (no lastSeenPostUri), only get the first batch
+      if (!lastSeenPostUri) {
+        console.log('First run - processing only the latest batch');
+        break;
+      }
+    }
+    
+    if (batchCount >= maxBatches && !foundLastSeenPost && lastSeenPostUri) {
+      console.warn(`Reached maximum batch limit (${maxBatches}) without finding last seen post. Some posts may have been missed.`);
+    }
+    
+    console.log(`Found ${allNewPosts.length} new posts to process`);
+    
+    let mostRecentPostUri: string | null = null;
+    let processedCount = 0;
+    
+    // Process posts in reverse order (oldest to newest) to maintain chronological order
+    for (const post of allNewPosts.reverse()) {
+      // Track the most recent post URI (last in chronological order)
+      if (!mostRecentPostUri) {
+        mostRecentPostUri = post.uri;
       }
       
       // Check if already processed
@@ -166,7 +229,17 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
       
       // Also mark the original post URI as processed
       await redis.sadd(REDIS_SET_NAME, post.uri);
+      processedCount++;
     }
+    
+    // Update the most recently seen post URI if we processed any new posts
+    if (mostRecentPostUri && processedCount > 0) {
+      await redis.set(REDIS_LAST_SEEN_POST, mostRecentPostUri);
+      console.log(`Updated last seen post to: ${mostRecentPostUri}`);
+    }
+    
+    console.log(`Processed ${processedCount} new posts in ${batchCount} batches`);
+    
   } catch (error) {
     console.error('Error searching for doodles:', error);
   }
