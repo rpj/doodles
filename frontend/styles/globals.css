@@ -4,14 +4,44 @@
   margin: 0;
 }
 
+
+:root {
+  --bg-color: #fdfcfa;
+  --text-color: #2c2c2c;
+  --card-bg: #ffffff;
+  --card-border: #d4c5b0;
+  --hover-bg: #f8f6f3;
+  --link-color: #8b7355;
+  --accent-color: #c9a96e;
+  --shadow-light: rgba(139, 115, 85, 0.08);
+  --shadow-medium: rgba(139, 115, 85, 0.12);
+  --shadow-dark: rgba(139, 115, 85, 0.18);
+}
+
+[data-theme="dark"] {
+  --bg-color: #1f1e1c;
+  --text-color: #e8e6e2;
+  --card-bg: #2a2926;
+  --card-border: #4a4540;
+  --hover-bg: #333028;
+  --link-color: #d4c5b0;
+  --accent-color: #c9a96e;
+  --shadow-light: rgba(0, 0, 0, 0.2);
+  --shadow-medium: rgba(0, 0, 0, 0.3);
+  --shadow-dark: rgba(0, 0, 0, 0.4);
+}
+
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  background-color: #fafafa;
-  color: #333;
+  font-family: 'Fascinate', system-ui;
+  font-weight: 400;
+  font-style: normal;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.4s ease, color 0.4s ease;
+  line-height: 1.6;
 }
 
 a {

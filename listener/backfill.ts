@@ -1,8 +1,10 @@
-import { AtpAgent } from '@atproto/api';
+import { AtpAgent, ComAtprotoServerCreateSession, AtpSessionEvent, AtpSessionData } from '@atproto/api';
 import { Redis } from 'ioredis';
+import { input } from '@inquirer/prompts';
 
 const REDIS_SET_NAME = `doodles:processed-uris`;
 const REDIS_DOODLE_LIST = `doodles:posts`;
+const REDIS_SESSION_NAME = `doodles:saved-session`;
 
 type DoodlePost = {
   uri: string,
@@ -20,27 +22,71 @@ const BACKFILL_POSTS = [
   'https://bsky.app/profile/ryanjoseph.dev/post/3lvizc7azw22q',
   'https://bsky.app/profile/ryanjoseph.dev/post/3lvjveozfms2k',
   'https://bsky.app/profile/ryanjoseph.dev/post/3lvz2tcmq5k2k',
-  'https://bsky.app/profile/ryanjoseph.dev/post/3lw2u3izcmc2t'
 ];
+
+async function login(agent: AtpAgent, redis: Redis): Promise<string> {
+  async function loginImpl(): Promise<ComAtprotoServerCreateSession.Response> {
+    const params = {
+      identifier: process.env.BLUESKY_IDENT as string,
+      password: process.env.BLUESKY_PASS as string,
+      authFactorToken: undefined
+    };
+
+    try {
+      return await agent.login(params);
+    } catch (e: any) {
+      if (e.status === 401 && e.error === 'AuthFactorTokenRequired') {
+        const token = await input({ message: 'Enter the auth code sent to you via email:' });
+        return agent.login({
+          ...params,
+          authFactorToken: token
+        });
+      }
+
+      throw e;
+    }
+  }
+
+  console.log(`Authenticating as @${process.env.BLUESKY_IDENT}...`);
+  const savedSession = await redis.get(REDIS_SESSION_NAME);
+  if (savedSession) {
+    try {
+      console.log('Reusing saved session...');
+      const { data: { handle } } = await agent.resumeSession(JSON.parse(savedSession));
+      return handle;
+    } catch (e) {
+      console.error('resumeSession failed!', e);
+      await redis.del(REDIS_SESSION_NAME);
+    }
+  }
+
+  const response = await loginImpl();
+  await redis.set(REDIS_SESSION_NAME, JSON.stringify(response.data));
+  return response.data.handle;
+}
 
 function extractImagesFromPost(post: any): string[] {
   const images: string[] = [];
-  const embed = post.value?.embed || post.embed;
   
-  if (!embed) return images;
-  
-  const embedType = embed['$type'];
-  
-  // Direct image embeds
-  if (embedType === 'app.bsky.embed.images' && embed.images) {
-    images.push(...embed.images.map(({ image }: any) => image.ref.$link));
-  }
-  
-  // For view objects
-  if (post.embeds && post.embeds[0]) {
-    const viewEmbed = post.embeds[0];
-    if (viewEmbed['$type'] === 'app.bsky.embed.images#view' && viewEmbed.images) {
-      images.push(...viewEmbed.images.map(({ fullsize }: any) => fullsize));
+  // Check embed in the post
+  if (post.embed) {
+    const embedType = post.embed['$type'];
+    
+    // Image view embeds
+    if (embedType === 'app.bsky.embed.images#view' && post.embed.images) {
+      images.push(...post.embed.images.map(({ fullsize }: any) => fullsize));
+    }
+    
+    // Record with media
+    if (embedType === 'app.bsky.embed.recordWithMedia#view' && post.embed.media) {
+      if (post.embed.media['$type'] === 'app.bsky.embed.images#view' && post.embed.media.images) {
+        images.push(...post.embed.media.images.map(({ fullsize }: any) => fullsize));
+      }
+    }
+    
+    // Video thumbnails
+    if (embedType === 'app.bsky.embed.video#view' && post.embed.thumbnail) {
+      images.push(post.embed.thumbnail);
     }
   }
   
@@ -57,7 +103,13 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
     }
     
     const [, handle, postId] = match;
-    const uri = `at://${handle}/app.bsky.feed.post/${postId}`;
+    
+    // Resolve the handle to get the DID
+    console.log(`Resolving handle: ${handle}`);
+    const { data: { did } } = await agent.resolveHandle({ handle });
+    console.log(`Resolved ${handle} to ${did}`);
+    
+    const uri = `at://${did}/app.bsky.feed.post/${postId}`;
     
     // Check if already processed
     if (await redis.sismember(REDIS_SET_NAME, uri)) {
@@ -65,16 +117,17 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
       return;
     }
     
-    // Get the post thread to extract all information
-    const threadResponse = await agent.getPostThread({ uri });
-    const threadData = threadResponse.data.thread;
+    // For public posts, we can use getPosts endpoint
+    console.log(`Fetching post: ${uri}`);
+    const postsResponse = await agent.getPosts({ uris: [uri] });
     
-    if (!threadData || !('post' in threadData)) {
+    if (!postsResponse.data.posts || postsResponse.data.posts.length === 0) {
       console.error(`Could not fetch post: ${postUrl}`);
+      console.error('Response:', JSON.stringify(postsResponse.data, null, 2));
       return;
     }
     
-    const post = threadData.post;
+    const post = postsResponse.data.posts[0] as any;
     
     // Extract images
     const imageUrls = extractImagesFromPost(post);
@@ -84,22 +137,35 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
       return;
     }
     
-    // Create doodle post object
-    const doodlePost: DoodlePost = {
-      uri,
-      authorHandle: post.author.handle,
-      authorDisplayName: post.author.displayName || post.author.handle,
-      text: (post.record as any)?.text || '',
-      imageUrls,
-      createdAt: (post.record as any)?.createdAt || new Date().toISOString(),
-      postUrl
-    };
+    // Create separate doodle post for each image
+    for (let i = 0; i < imageUrls.length; i++) {
+      const imageUri = `${uri}#image${i}`;
+      
+      // Check if this specific image was already processed
+      if (await redis.sismember(REDIS_SET_NAME, imageUri)) {
+        console.log(`Image ${i + 1} already processed: ${postUrl}`);
+        continue;
+      }
+      
+      const doodlePost: DoodlePost = {
+        uri: imageUri,
+        authorHandle: post.author?.handle || handle,
+        authorDisplayName: post.author?.displayName || post.author?.handle || handle,
+        text: post.record?.text || '',
+        imageUrls: [imageUrls[i]], // Single image per post
+        createdAt: post.record?.createdAt || new Date().toISOString(),
+        postUrl
+      };
+      
+      // Store in Redis (using RPUSH to maintain chronological order)
+      await redis.rpush(REDIS_DOODLE_LIST, JSON.stringify(doodlePost));
+      await redis.sadd(REDIS_SET_NAME, imageUri);
+      
+      console.log(`Backfilled doodle ${i + 1}/${imageUrls.length} from @${post.author?.handle || handle}: "${doodlePost.text.substring(0, 50)}..."`);
+    }
     
-    // Store in Redis (using RPUSH to maintain chronological order)
-    await redis.rpush(REDIS_DOODLE_LIST, JSON.stringify(doodlePost));
+    // Also mark the original post URI as processed
     await redis.sadd(REDIS_SET_NAME, uri);
-    
-    console.log(`Backfilled doodle from @${post.author.handle}: "${doodlePost.text.substring(0, 50)}..."`);
   } catch (error) {
     console.error(`Error backfilling post ${postUrl}:`, error);
   }
@@ -110,6 +176,14 @@ async function main() {
   const agent = new AtpAgent({
     service: 'https://bsky.social',
   });
+  
+  // Clear previously processed posts so we can re-process them
+  console.log('Clearing processed posts...');
+  await redis.del(REDIS_SET_NAME);
+  await redis.del(REDIS_DOODLE_LIST);
+  
+  // Authenticate with 2FA support
+  await login(agent, redis);
   
   console.log('Starting backfill process...');
   console.log(`Processing ${BACKFILL_POSTS.length} posts`);

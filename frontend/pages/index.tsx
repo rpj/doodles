@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { DoodlePost } from '../lib/redis';
 import DoodleCard from '../components/DoodleCard';
+import { useTheme } from '../contexts/ThemeContext';
 import styles from '../styles/Home.module.css';
 
 export default function Home() {
   const [doodles, setDoodles] = useState<DoodlePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     fetchDoodles();
@@ -43,10 +45,18 @@ export default function Home() {
       </Head>
       
       <main className={styles.main}>
+        <button 
+          onClick={toggleTheme}
+          className={styles.themeToggle}
+          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+        >
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
+        
         <header className={styles.header}>
           <h1 className={styles.title}>Daily Doodles</h1>
           <p className={styles.subtitle}>
-            A collection of art shared with #DailyDoodle on Bluesky
+ <a href="https://ryanjoseph.dev" target="_blank">I</a> have started trying to do a "doodle a day" both as a respite and to improve my skills.<br/><br/>If they're not awful <a href="https://ryanjoseph.dev" target="_blank">I</a> will post them to Bluesky and they'll end up here.
           </p>
         </header>
 

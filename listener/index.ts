@@ -32,9 +32,9 @@ async function login(agent: AtpAgent, redis: Redis): Promise<string> {
 
     try {
       return await agent.login(params);
-    } catch (e) {
+    } catch (e: any) {
       if (e.status === 401 && e.error === 'AuthFactorTokenRequired') {
-        params.authFactorToken = await input({ message: 'Enter the auth code sent to you via email:' });
+        params.authFactorToken = await input({ message: 'Enter the auth code sent to you via email:' }) as any;
         return agent.login(params);
       }
 
@@ -73,13 +73,13 @@ function extractImagesFromPost(post: any): string[] {
   
   // Direct image embeds
   if (embedType === 'app.bsky.embed.images#view' && embed.images) {
-    images.push(...embed.images.map(({ fullsize }) => fullsize));
+    images.push(...embed.images.map(({ fullsize }: any) => fullsize));
   }
   
   // Record with media
   if (embedType === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
     if (embed.media['$type'] === 'app.bsky.embed.images#view' && embed.media.images) {
-      images.push(...embed.media.images.map(({ fullsize }) => fullsize));
+      images.push(...embed.media.images.map(({ fullsize }: any) => fullsize));
     }
   }
   
@@ -110,6 +110,11 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
     console.log(`Found ${posts.length} posts with potential doodles`);
     
     for (const post of posts) {
+      // Only process posts from ryanjoseph.dev
+      if (post.author.handle !== 'ryanjoseph.dev') {
+        continue;
+      }
+      
       // Check if already processed
       if (await redis.sismember(REDIS_SET_NAME, post.uri)) {
         continue;
@@ -133,22 +138,34 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
       const [, , , , urlId] = post.uri.split('/');
       const postUrl = `https://bsky.app/profile/${post.author.handle}/post/${urlId}`;
       
-      // Create doodle post object
-      const doodlePost: DoodlePost = {
-        uri: post.uri,
-        authorHandle: post.author.handle,
-        authorDisplayName: post.author.displayName || post.author.handle,
-        text: postText,
-        imageUrls,
-        createdAt: (post.record as any).createdAt,
-        postUrl
-      };
+      // Create separate doodle post for each image
+      for (let i = 0; i < imageUrls.length; i++) {
+        const imageUri = `${post.uri}#image${i}`;
+        
+        // Check if this specific image was already processed
+        if (await redis.sismember(REDIS_SET_NAME, imageUri)) {
+          continue;
+        }
+        
+        const doodlePost: DoodlePost = {
+          uri: imageUri,
+          authorHandle: post.author.handle,
+          authorDisplayName: post.author.displayName || post.author.handle,
+          text: postText,
+          imageUrls: [imageUrls[i]], // Single image per post
+          createdAt: (post.record as any).createdAt,
+          postUrl
+        };
+        
+        // Store in Redis
+        await redis.lpush(REDIS_DOODLE_LIST, JSON.stringify(doodlePost));
+        await redis.sadd(REDIS_SET_NAME, imageUri);
+        
+        console.log(`Added doodle ${i + 1}/${imageUrls.length} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
+      }
       
-      // Store in Redis
-      await redis.lpush(REDIS_DOODLE_LIST, JSON.stringify(doodlePost));
+      // Also mark the original post URI as processed
       await redis.sadd(REDIS_SET_NAME, post.uri);
-      
-      console.log(`Added doodle from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
     }
   } catch (error) {
     console.error('Error searching for doodles:', error);
@@ -168,14 +185,14 @@ async function agentSessionWasRefreshed(redis: Redis, event: AtpSessionEvent, se
 }
 
 let pollHandle: NodeJS.Timeout;
-let resolver = (_) => { };
-const redis = new Redis(process.env.REDIS_URL);
+let resolver = (_: any) => { };
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 function shutdown() {
   console.log('Ending...');
   redis.disconnect();
   clearTimeout(pollHandle);
-  resolver((pollHandle = null));
+  resolver((pollHandle = null as any));
   console.log('Done.');
 }
 
@@ -188,7 +205,7 @@ async function main() {
 
   try {
     handle = await login(agent, redis);
-  } catch (e) {
+  } catch (e: any) {
     if (e.status === 429 && e.error === 'RateLimitExceeded') {
       console.error(`Login rate limit reached!`);
       return shutdown();
