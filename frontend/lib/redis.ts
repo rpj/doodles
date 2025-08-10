@@ -33,5 +33,5 @@ export async function getDoodles(): Promise<DoodlePost[]> {
       }
     })
     .filter((doodle): doodle is DoodlePost => doodle !== null)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

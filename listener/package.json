@@ -4,7 +4,8 @@
   "main": "index.ts",
   "scripts": {
     "start": "npx ts-node index.ts",
-    "backfill": "npx ts-node backfill.ts"
+    "backfill": "npx ts-node backfill.ts",
+    "simple-backfill": "npx ts-node simple-backfill.ts"
   },
   "keywords": [],
   "author": "",
