@@ -109,6 +109,7 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
     let cursor: string | undefined;
     let foundLastSeenPost = false;
     let batchCount = 0;
+    let allPostsCount = 0;
     const maxBatches = 20; // Safety limit to prevent infinite loops
     
     // Search in batches until we find the last seen post or hit limits
@@ -133,6 +134,8 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
         console.log('No more posts found');
         break;
       }
+
+      allPostsCount += posts.length;
       
       // Check if we've found the last seen post in this batch
       for (const post of posts) {
@@ -166,7 +169,7 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
       console.warn(`Reached maximum batch limit (${maxBatches}) without finding last seen post. Some posts may have been missed.`);
     }
     
-    console.log(`Found ${allNewPosts.length} new posts to process`);
+    console.log(`Found ${allNewPosts.length} new posts to process (of ${allPostsCount} total)`);
     
     let mostRecentPostUri: string | null = null;
     let processedCount = 0;
@@ -233,7 +236,7 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
     }
     
     // Update the most recently seen post URI if we processed any new posts
-    if (mostRecentPostUri && processedCount > 0) {
+    if (mostRecentPostUri) {
       await redis.set(REDIS_LAST_SEEN_POST, mostRecentPostUri);
       console.log(`Updated last seen post to: ${mostRecentPostUri}`);
     }
