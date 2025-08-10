@@ -1,6 +1,7 @@
 services:
   listener:
     build: ./listener
+    network_mode: 'host'
     environment:
       - REDIS_URL=${REDIS_URL}
       - BLUESKY_IDENT=${BLUESKY_IDENT}
@@ -10,8 +11,7 @@ services:
 
   frontend:
     build: ./frontend
-    ports:
-      - "3000:3000"
+    network_mode: 'host'
     environment:
       - REDIS_URL=${REDIS_URL}
     restart: unless-stopped
