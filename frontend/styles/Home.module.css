@@ -23,11 +23,40 @@
   margin-bottom: 1.5rem;
 }
 
-.themeToggle {
+.topButtons {
   position: fixed;
   top: 2rem;
   right: 2rem;
   z-index: 1000;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.githubButton {
+  background: none;
+  border: 2px solid var(--card-border);
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  background-color: var(--card-bg);
+  box-shadow: 0 4px 12px var(--shadow-medium);
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.githubButton:hover {
+  background-color: var(--hover-bg);
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 0 6px 20px var(--shadow-dark);
+  border-color: var(--accent-color);
+}
+
+.themeToggle {
   background: none;
   border: 2px solid var(--card-border);
   border-radius: 50%;
@@ -124,11 +153,18 @@
     padding: 0;
   }
   
-  .themeToggle {
+  .topButtons {
     top: 1rem;
     right: 1rem;
+  }
+  
+  .githubButton,
+  .themeToggle {
     width: 2.25rem;
     height: 2.25rem;
+  }
+  
+  .themeToggle {
     font-size: 1rem;
   }
 }
