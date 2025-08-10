@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+
+  listener:
+    build: ./listener
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - BLUESKY_IDENT=${BLUESKY_IDENT}
+      - BLUESKY_PASS=${BLUESKY_PASS}
+      - DOODLE_POLLING_FREQ_SECONDS=300
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+
+volumes:
+  redis-data:
