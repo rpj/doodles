@@ -6,7 +6,7 @@ services:
       - REDIS_URL=${REDIS_URL}
       - BLUESKY_IDENT=${BLUESKY_IDENT}
       - BLUESKY_PASS=${BLUESKY_PASS}
-      - DOODLE_POLLING_FREQ_SECONDS=107
+      - DOODLE_POLLING_FREQ_SECONDS=420
     restart: unless-stopped
 
   frontend:
