@@ -109,11 +109,21 @@ If they're not awful, I'll post them to <a href="https://bsky.app/hashtag/DailyD
         )}
 
         {!loading && !error && doodles.length > 0 && (
-          <div className={styles.grid}>
-            {doodles.map((doodle) => (
-              <DoodleCard key={doodle.uri} doodle={doodle} />
-            ))}
-          </div>
+          <>
+            {doodles.length > 0 && (
+              <div className={styles.heroSection}>
+                <DoodleCard key={doodles[0].uri} doodle={doodles[0]} isHero={true} />
+              </div>
+            )}
+            
+            {doodles.length > 1 && (
+              <div className={styles.grid}>
+                {doodles.slice(1).map((doodle) => (
+                  <DoodleCard key={doodle.uri} doodle={doodle} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
     </>

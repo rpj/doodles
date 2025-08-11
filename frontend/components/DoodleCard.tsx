@@ -8,25 +8,41 @@ import styles from '../styles/DoodleCard.module.css';
 
 interface DoodleCardProps {
   doodle: DoodlePost;
+  isHero?: boolean;
 }
 
-export default function DoodleCard({ doodle }: DoodleCardProps) {
+export default function DoodleCard({ doodle, isHero = false }: DoodleCardProps) {
   const postId = getPostIdFromUri(doodle.uri);
   
   return (
-    <div className={styles.card}>
+    <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
       <Link href={`/post/${encodeURIComponent(postId)}`} className={styles.imageLink}>
-        <div className={styles.imageContainer}>
+        <div className={`${styles.imageContainer} ${isHero ? styles.heroImageContainer : ''}`}>
           {doodle.imageUrls.map((url, index) => (
             <div key={index} className={styles.imageWrapper}>
-              <Image
-                src={url}
-                alt={`Doodle by @${doodle.authorHandle}`}
-                width={400}
-                height={400}
-                className={styles.image}
-                loading="lazy"
-              />
+              {isHero ? (
+                <Image
+                  src={url}
+                  alt={`Doodle by @${doodle.authorHandle}`}
+                  width={700}
+                  height={0}
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                  }}
+                  className={styles.image}
+                  loading="lazy"
+                />
+              ) : (
+                <Image
+                  src={url}
+                  alt={`Doodle by @${doodle.authorHandle}`}
+                  width={400}
+                  height={400}
+                  className={styles.image}
+                  loading="lazy"
+                />
+              )}
             </div>
           ))}
         </div>

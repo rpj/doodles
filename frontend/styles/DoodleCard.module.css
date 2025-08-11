@@ -124,3 +124,104 @@
   height: 1px;
   background: var(--accent-color);
 }
+
+.heroCard {
+  width: 700px;
+  max-width: 90vw;
+  box-shadow: 
+    0 0 0 3px var(--accent-color),
+    0 0 0 4px var(--card-border),
+    0 20px 60px var(--shadow-dark),
+    0 10px 30px var(--shadow-medium),
+    0 0 80px var(--shadow-dark),
+    0 0 120px var(--shadow-medium),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  background: linear-gradient(145deg, var(--card-bg) 0%, var(--hover-bg) 100%);
+}
+
+.heroCard::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, var(--accent-subtle) 0%, transparent 50%);
+  z-index: 15;
+  opacity: 0.7;
+}
+
+.heroCard::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(-45deg, var(--accent-subtle) 0%, transparent 50%);
+  z-index: 15;
+  opacity: 0.7;
+}
+
+.heroCard:hover {
+  transform: translateY(-12px) scale(1.02);
+  box-shadow: 
+    0 0 0 3px var(--accent-color),
+    0 0 0 4px var(--card-border),
+    0 30px 80px var(--shadow-dark),
+    0 15px 40px var(--shadow-medium),
+    0 0 120px var(--shadow-dark),
+    0 0 160px var(--shadow-medium),
+    0 0 40px var(--accent-color),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.heroImageContainer {
+  aspect-ratio: unset;
+  max-width: 700px;
+  width: 100%;
+  height: auto;
+  border: 12px solid var(--card-bg);
+  background: var(--hover-bg);
+  position: relative;
+}
+
+.heroImageContainer::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(192, 192, 192, 0.1) 45%,
+    rgba(192, 192, 192, 0.2) 50%,
+    rgba(192, 192, 192, 0.1) 55%,
+    transparent 70%
+  );
+  z-index: -1;
+  border-radius: 2px;
+}
+
+@media (max-width: 768px) {
+  .heroCard {
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .heroCard:hover {
+    transform: translateY(-8px) scale(1.01);
+  }
+  
+  .heroImageContainer {
+    max-width: 400px;
+    width: 100%;
+    height: auto;
+    border: 8px solid var(--card-bg);
+  }
+}
