@@ -15,8 +15,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   <channel>
     <title>Daily Doodles</title>
     <description>@ryanjoseph.dev's collection of daily doodles from Bluesky</description>
-    <link>https://doodles-dev.ryanj.xyz</link>
-    <atom:link href="https://doodles-dev.ryanj.xyz/rss.xml" rel="self" type="application/rss+xml" />
+    <link>https://doodles.ryanj.xyz</link>
+    <atom:link href="https://doodles.ryanj.xyz/rss.xml" rel="self" type="application/rss+xml" />
     <language>en</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <generator>Daily Doodles RSS Generator</generator>
