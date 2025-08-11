@@ -6,29 +6,31 @@
 
 
 :root {
-  --bg-color: #fdf9f2;
-  --text-color: #2c2c2c;
+  --bg-color: #ffffff;
+  --text-color: #000000;
   --card-bg: #ffffff;
-  --card-border: #d4c5b0;
-  --hover-bg: #f8f6f3;
-  --link-color: #8b7355;
-  --accent-color: #c9a96e;
-  --shadow-light: rgba(139, 115, 85, 0.08);
-  --shadow-medium: rgba(139, 115, 85, 0.12);
-  --shadow-dark: rgba(139, 115, 85, 0.18);
+  --card-border: #e0e0e0;
+  --hover-bg: #f9f9f9;
+  --link-color: #1a4b84;
+  --accent-color: #c0c0c0;
+  --accent-subtle: #b8b8b8;
+  --shadow-light: rgba(0, 0, 0, 0.08);
+  --shadow-medium: rgba(0, 0, 0, 0.15);
+  --shadow-dark: rgba(0, 0, 0, 0.25);
 }
 
 [data-theme="dark"] {
-  --bg-color: #1f1e1c;
-  --text-color: #e8e6e2;
-  --card-bg: #2a2926;
-  --card-border: #4a4540;
-  --hover-bg: #333028;
-  --link-color: #d4c5b0;
-  --accent-color: #c9a96e;
-  --shadow-light: rgba(0, 0, 0, 0.2);
-  --shadow-medium: rgba(0, 0, 0, 0.3);
-  --shadow-dark: rgba(0, 0, 0, 0.4);
+  --bg-color: #000000;
+  --text-color: #ffffff;
+  --card-bg: #1a1a1a;
+  --card-border: #333333;
+  --hover-bg: #222222;
+  --link-color: #4a90e2;
+  --accent-color: #d3d3d3;
+  --accent-subtle: #888888;
+  --shadow-light: rgba(0, 0, 0, 0.4);
+  --shadow-medium: rgba(0, 0, 0, 0.6);
+  --shadow-dark: rgba(0, 0, 0, 0.8);
 }
 
 html,
@@ -38,14 +40,14 @@ body {
   font-family: 'Fascinate', system-ui;
   font-weight: 400;
   font-style: normal;
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
   transition: background-color 0.4s ease, color 0.4s ease;
   line-height: 1.6;
 }
 
 a {
-  color: inherit;
+  color: var(--link-color);
   text-decoration: none;
 }
 

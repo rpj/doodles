@@ -62,14 +62,24 @@ export default function Home() {
             className={styles.themeToggle}
             aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           >
-            {theme === 'light' ? '🌙' : '☀️'}
+            {theme === 'light' ? (
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <circle cx="12" cy="12" r="8"/>
+              </svg>
+            )}
           </button>
         </div>
         
         <header className={styles.header}>
           <h1 className={styles.title}>Daily Doodles</h1>
           <p className={styles.subtitle}>
- <a href="https://ryanjoseph.dev" target="_blank">I</a> have started trying to do a "doodle a day" both as a respite and to improve my skills.<br/><br/>If they're not awful <a href="https://ryanjoseph.dev" target="_blank">I</a> will post them to Bluesky and they'll end up here.
+ <a href="https://ryanjoseph.dev" target="_blank">I</a> have been trying to draw a "doodle a day" both as a respite and to improve my skills.<br/><br/>
+
+If they're not awful, I'll post them to <a href="https://bsky.app/hashtag/DailyDoodle?author=ryanjoseph.dev" target="_blank">Bluesky</a> and they'll automatically end up here.
           </p>
         </header>
 

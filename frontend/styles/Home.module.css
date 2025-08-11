@@ -21,6 +21,15 @@
   letter-spacing: -0.02em;
   line-height: 1.1;
   margin-bottom: 1.5rem;
+  text-shadow: 
+    0 3px 6px var(--shadow-light),
+    0 6px 12px var(--shadow-medium),
+    0 8px 20px var(--shadow-dark),
+    0 2px 0 var(--accent-color),
+    0 3px 0 var(--accent-color),
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    0 0 30px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .topButtons {
@@ -44,16 +53,41 @@
   justify-content: center;
   transition: all 0.3s ease;
   background-color: var(--card-bg);
-  box-shadow: 0 4px 12px var(--shadow-medium);
+  box-shadow: 
+    0 4px 12px var(--shadow-medium),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   color: var(--text-color);
   text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.githubButton::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.05) 0%, transparent 70%);
+  transition: all 0.4s ease;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
 }
 
 .githubButton:hover {
   background-color: var(--hover-bg);
   transform: translateY(-2px) scale(1.1);
-  box-shadow: 0 6px 20px var(--shadow-dark);
+  box-shadow: 
+    0 6px 20px var(--shadow-dark),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 15px rgba(0, 0, 0, 0.2);
   border-color: var(--accent-color);
+}
+
+.githubButton:hover::before {
+  width: 2.5rem;
+  height: 2.5rem;
 }
 
 .themeToggle {
@@ -69,26 +103,52 @@
   justify-content: center;
   transition: all 0.3s ease;
   background-color: var(--card-bg);
-  box-shadow: 0 4px 12px var(--shadow-medium);
+  box-shadow: 
+    0 4px 12px var(--shadow-medium),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.themeToggle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.05) 0%, transparent 70%);
+  transition: all 0.4s ease;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
 }
 
 .themeToggle:hover {
   background-color: var(--hover-bg);
   transform: translateY(-2px) scale(1.1);
-  box-shadow: 0 6px 20px var(--shadow-dark);
+  box-shadow: 
+    0 6px 20px var(--shadow-dark),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 15px rgba(0, 0, 0, 0.2);
   border-color: var(--accent-color);
+}
+
+.themeToggle:hover::before {
+  width: 2.5rem;
+  height: 2.5rem;
 }
 
 .subtitle {
   font-family: 'Limelight', sans-serif;
-  font-size: 1.375rem;
+  font-size: 1.125rem;
   font-weight: 400;
   font-style: normal;
   color: var(--text-color);
   opacity: 0.8;
-  max-width: 600px;
+  max-width: 500px;
   margin: 0 auto;
   line-height: 1.5;
+  text-shadow: 0 1px 2px var(--shadow-light);
 }
 
 .grid {

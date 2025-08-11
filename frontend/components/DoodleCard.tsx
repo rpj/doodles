@@ -1,7 +1,9 @@
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { format } from 'date-fns';
 import { DoodlePost } from '../lib/redis';
+import { getPostIdFromUri } from '../lib/utils';
 import styles from '../styles/DoodleCard.module.css';
 
 interface DoodleCardProps {
@@ -9,14 +11,11 @@ interface DoodleCardProps {
 }
 
 export default function DoodleCard({ doodle }: DoodleCardProps) {
+  const postId = getPostIdFromUri(doodle.uri);
+  
   return (
     <div className={styles.card}>
-      <a 
-        href={doodle.postUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={styles.imageLink}
-      >
+      <Link href={`/post/${encodeURIComponent(postId)}`} className={styles.imageLink}>
         <div className={styles.imageContainer}>
           {doodle.imageUrls.map((url, index) => (
             <div key={index} className={styles.imageWrapper}>
@@ -31,7 +30,7 @@ export default function DoodleCard({ doodle }: DoodleCardProps) {
             </div>
           ))}
         </div>
-      </a>
+      </Link>
       
       <div className={styles.content}>
         <time className={styles.date}>
