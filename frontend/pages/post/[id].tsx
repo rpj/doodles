@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
 import { getDoodles, DoodlePost } from '../../lib/redis';
 import { getPostIdFromUri } from '../../lib/utils';
+import { useTheme } from '../../contexts/ThemeContext';
 import styles from '../../styles/Post.module.css';
 
 interface PostPageProps {
@@ -13,6 +14,7 @@ interface PostPageProps {
 }
 
 export default function PostPage({ post }: PostPageProps) {
+  const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -48,6 +50,24 @@ export default function PostPage({ post }: PostPageProps) {
       </Head>
       
       <main className={styles.main}>
+        <div className={styles.themeToggleContainer}>
+          <button 
+            onClick={toggleTheme}
+            className={styles.themeToggle}
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <circle cx="12" cy="12" r="8" fill="currentColor" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            )}
+          </button>
+        </div>
+        
         <div className={styles.container}>
           <Link href="/" className={styles.backLink}>
             ← Back to all doodles

@@ -6,6 +6,61 @@
 }
 
 
+.themeToggleContainer {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  z-index: 1000;
+}
+
+.themeToggle {
+  background: none;
+  border: 2px solid var(--card-border);
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  background-color: var(--card-bg);
+  box-shadow: 
+    0 4px 12px var(--shadow-medium),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.themeToggle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.05) 0%, transparent 70%);
+  transition: all 0.4s ease;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.themeToggle:hover {
+  background-color: var(--hover-bg);
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 
+    0 6px 20px var(--shadow-dark),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 15px rgba(0, 0, 0, 0.2);
+  border-color: var(--accent-color);
+}
+
+.themeToggle:hover::before {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
 .container {
   width: 100%;
 }
@@ -168,5 +223,16 @@
   .meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .themeToggleContainer {
+    top: 1rem;
+    right: 1rem;
+  }
+  
+  .themeToggle {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1rem;
   }
 }
