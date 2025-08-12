@@ -297,7 +297,7 @@ async function main() {
   do {
     await new Promise((resolve, reject) => {
       resolver = resolve;
-      console.debug('Waking up...');
+      console.debug(`Waking up at ${new Date()}...`);
       searchForDoodles(agent, redis)
         .then(() => setTimeout(() => resolve(true), POLLING_FREQ_SECONDS * 1000))
         .then(timeoutHandle => (pollHandle = timeoutHandle))

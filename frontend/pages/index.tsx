@@ -87,11 +87,6 @@ export default function Home() {
         
         <header className={styles.header}>
           <h1 className={styles.title}>Daily Doodles</h1>
-          <p className={styles.subtitle}>
- <a href="https://ryanjoseph.dev" target="_blank">I</a> have been trying to draw a "doodle a day" both as a respite and to improve my skills.<br/><br/>
-
-If they're not awful, I'll post them to <a href="https://bsky.app/hashtag/DailyDoodle?author=ryanjoseph.dev" target="_blank">Bluesky</a> and they'll automatically end up here.
-          </p>
         </header>
 
         {loading && (
