@@ -39,8 +39,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Daily Doodles</title>
-        <meta name="description" content="@ryanjoseph.dev's collection of daily doodles from Bluesky" />
+        <title>All The Doodles</title>
+        <meta name="description" content="All #DailyDoodle on Bluesky" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -86,7 +86,12 @@ export default function Home() {
         </div>
         
         <header className={styles.header}>
-          <h1 className={styles.title}>Daily Doodles</h1>
+          <h1 className={styles.title}>All The Doodles</h1>
+          <p className={styles.subtitle}>
+            All <a href="https://bsky.app/hashtag/DailyDoodle" target="_blank">#DailyDoodle</a> on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
+            <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev's doodles</a><br/>
+            <span className={styles.smallText}>Want your own page? Slide into those <a href="https://bsky.app/profile/ryanjoseph.dev">DMs...</a></span>
+          </p>
         </header>
 
         {loading && (
@@ -104,21 +109,11 @@ export default function Home() {
         )}
 
         {!loading && !error && doodles.length > 0 && (
-          <>
-            {doodles.length > 0 && (
-              <div className={styles.heroSection}>
-                <DoodleCard key={doodles[0].uri} doodle={doodles[0]} isHero={true} />
-              </div>
-            )}
-            
-            {doodles.length > 1 && (
-              <div className={styles.grid}>
-                {doodles.slice(1).map((doodle) => (
-                  <DoodleCard key={doodle.uri} doodle={doodle} />
-                ))}
-              </div>
-            )}
-          </>
+          <div className={styles.grid}>
+            {doodles.map((doodle) => (
+              <DoodleCard key={doodle.uri} doodle={doodle} />
+            ))}
+          </div>
         )}
       </main>
     </>

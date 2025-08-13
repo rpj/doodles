@@ -35,9 +35,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Uses `@atproto/api` to interact with Bluesky's AT Protocol
 - Polls Bluesky search API every ~5 minutes (configurable via `DOODLE_POLLING_FREQ_SECONDS`)
 - Maintains session persistence in Redis to avoid re-authentication
-- Processes only posts from `ryanjoseph.dev` handle containing `#DailyDoodle` hashtag
+- Supports multiple simultaneous filters including all users and specific handles
 - Creates separate `DoodlePost` entries for each image in multi-image posts
 - Uses Redis sets to track processed URIs and avoid duplicates
+- Uses separate Redis prefixes for each mode to keep data isolated
 
 **Data Structure:**
 ```typescript
@@ -52,11 +53,16 @@ type DoodlePost = {
 }
 ```
 
-**Redis Schema:**
-- `doodles:posts` - List of serialized DoodlePost objects
-- `doodles:processed-uris` - Set of processed post/image URIs
-- `doodles:saved-session` - Bluesky session data for persistence
-- `doodles:last-seen-post` - URI of most recent processed post (search optimization)
+**Redis Prefixes:**
+- `all-doodles:*` - All #DailyDoodle posts from any user (filters NSFW)
+- `doodles:*` - Only posts from ryanjoseph.dev
+- `user-[handle]:*` - Posts from additional specific users (configured via DOODLE_FILTERS)
+
+Each prefix maintains:
+- `posts` - List of serialized DoodlePost objects
+- `processed-uris` - Set of processed post/image URIs  
+- `saved-session` - Bluesky session data for persistence
+- `last-seen-post` - URI of most recent processed post (search optimization)
 
 ### Key Processing Logic
 
@@ -80,6 +86,7 @@ Required:
 
 Optional:
 - `DOODLE_POLLING_FREQ_SECONDS` - Polling interval (default: 300)
+- `DOODLE_FILTERS` - Additional user filters in format `handle1:prefix1,handle2:prefix2`
 
 ## Development Workflow
 

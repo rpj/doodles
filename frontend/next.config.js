@@ -11,6 +11,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'bsky.social',
       },
+      {
+        protocol: 'https',
+        hostname: 'video.bsky.app',
+      },
     ],
   },
 }

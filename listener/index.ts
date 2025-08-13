@@ -7,10 +7,27 @@ const IDENT = process.env.BLUESKY_IDENT;
 const START_TS = Date.now();
 
 const POLLING_FREQ_SECONDS = Number.parseInt(process.env.DOODLE_POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
-const REDIS_SET_NAME = `doodles:processed-uris`;
-const REDIS_SESSION_NAME = `doodles:saved-session`;
-const REDIS_DOODLE_LIST = `doodles:posts`;
-const REDIS_LAST_SEEN_POST = `doodles:last-seen-post`;
+
+// Filter configuration: maps redis prefixes to Bluesky handles
+// 'all-doodles' is special - it collects all posts (no handle filter)
+// Other entries filter posts to specific handles
+const FILTER_CONFIG: Record<string, string | null> = {
+  'all-doodles': null, // null means no handle filtering (all users)
+  'doodles': 'ryanjoseph.dev', // personal posts
+};
+
+// Add any additional filters from environment variables
+// Format: DOODLE_FILTERS=handle1:prefix1,handle2:prefix2
+if (process.env.DOODLE_FILTERS) {
+  const additionalFilters = process.env.DOODLE_FILTERS.split(',');
+  for (const filter of additionalFilters) {
+    const [handle, prefix] = filter.split(':');
+    if (handle && prefix) {
+      FILTER_CONFIG[prefix] = handle;
+    }
+  }
+}
+
 const HASHTAG_TO_WATCH = '#DailyDoodle';
 const SEARCH_BATCH_SIZE = 25;
 
@@ -24,7 +41,7 @@ type DoodlePost = {
   postUrl: string,
 };
 
-async function login(agent: AtpAgent, redis: Redis): Promise<string> {
+async function login(agent: AtpAgent, redis: Redis, sessionPrefix: string): Promise<string> {
   async function loginImpl(): Promise<ComAtprotoServerCreateSession.Response> {
     const params = {
       identifier: IDENT as string,
@@ -45,7 +62,7 @@ async function login(agent: AtpAgent, redis: Redis): Promise<string> {
   }
 
   console.log(`Authenticating as @${IDENT}...`);
-  const savedSession = await redis.get(REDIS_SESSION_NAME);
+  const savedSession = await redis.get(`${sessionPrefix}:saved-session`);
   if (savedSession) {
     try {
       console.log('Reusing saved session...');
@@ -53,13 +70,13 @@ async function login(agent: AtpAgent, redis: Redis): Promise<string> {
       return handle;
     } catch (e) {
       console.error('resumeSession failed!', e);
-      await redis.del(REDIS_SESSION_NAME);
+      await redis.del(`${sessionPrefix}:saved-session`);
     }
   }
 
   const response = await loginImpl();
   console.log(`${response.headers['ratelimit-remaining']} logins remain`);
-  await redis.set(REDIS_SESSION_NAME, JSON.stringify(response.data));
+  await redis.set(`${sessionPrefix}:saved-session`, JSON.stringify(response.data));
   return response.data.handle;
 }
 
@@ -78,16 +95,12 @@ function extractImagesFromPost(post: any): string[] {
     images.push(...embed.images.map(({ fullsize }: any) => fullsize));
   }
   
-  // Record with media
+  // Record with media (only process images, skip videos)
   if (embedType === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
     if (embed.media['$type'] === 'app.bsky.embed.images#view' && embed.media.images) {
       images.push(...embed.media.images.map(({ fullsize }: any) => fullsize));
     }
-  }
-  
-  // Video thumbnails
-  if (embedType === 'app.bsky.embed.video#view' && embed.thumbnail) {
-    images.push(embed.thumbnail);
+    // Skip videos - we don't want video thumbnails
   }
   
   return images;
@@ -97,12 +110,16 @@ function hasHashtag(text: string, hashtag: string): boolean {
   return text.toLowerCase().includes(hashtag.toLowerCase());
 }
 
+function hasSkipTag(text: string): boolean {
+  return ['#nsfw', '#noindex', '#no-index'].some(check => text.toLowerCase().includes(check));
+}
+
 async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
   console.log(`Searching for posts with ${HASHTAG_TO_WATCH}...`);
   
   try {
     // Get the most recently seen post URI
-    const lastSeenPostUri = await redis.get(REDIS_LAST_SEEN_POST);
+    const lastSeenPostUri = await redis.get('all-doodles:last-seen-post');
     console.log(`Last seen post: ${lastSeenPostUri || 'none (first run)'}`);
     
     let allNewPosts: any[] = [];
@@ -145,10 +162,8 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
           break;
         }
         
-        // Only collect posts from ryanjoseph.dev
-        if (post.author.handle === 'ryanjoseph.dev') {
-          allNewPosts.push(post);
-        }
+        // Collect all posts - we'll filter them later when processing
+        allNewPosts.push(post);
       }
       
       // Update cursor for next batch
@@ -181,11 +196,6 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
         mostRecentPostUri = post.uri;
       }
       
-      // Check if already processed
-      if (await redis.sismember(REDIS_SET_NAME, post.uri)) {
-        continue;
-      }
-      
       // Verify the post actually contains the hashtag in the text
       const postText = (post.record as any)?.text || '';
       if (!hasHashtag(postText, HASHTAG_TO_WATCH)) {
@@ -204,40 +214,15 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
       const [, , , , urlId] = post.uri.split('/');
       const postUrl = `https://bsky.app/profile/${post.author.handle}/post/${urlId}`;
       
-      // Create separate doodle post for each image
-      for (let i = 0; i < imageUrls.length; i++) {
-        const imageUri = `${post.uri}#image${i}`;
-        
-        // Check if this specific image was already processed
-        if (await redis.sismember(REDIS_SET_NAME, imageUri)) {
-          continue;
-        }
-        
-        const doodlePost: DoodlePost = {
-          uri: imageUri,
-          authorHandle: post.author.handle,
-          authorDisplayName: post.author.displayName || post.author.handle,
-          text: postText,
-          imageUrls: [imageUrls[i]], // Single image per post
-          createdAt: (post.record as any).createdAt,
-          postUrl
-        };
-        
-        // Store in Redis
-        await redis.lpush(REDIS_DOODLE_LIST, JSON.stringify(doodlePost));
-        await redis.sadd(REDIS_SET_NAME, imageUri);
-        
-        console.log(`Added doodle ${i + 1}/${imageUrls.length} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
-      }
+      // Fan out to all configured filters
+      await processPostForAllFilters(redis, post, postText, imageUrls, postUrl);
       
-      // Also mark the original post URI as processed
-      await redis.sadd(REDIS_SET_NAME, post.uri);
       processedCount++;
     }
     
     // Update the most recently seen post URI if we processed any new posts
     if (mostRecentPostUri) {
-      await redis.set(REDIS_LAST_SEEN_POST, mostRecentPostUri);
+      await redis.set('all-doodles:last-seen-post', mostRecentPostUri);
       console.log(`Updated last seen post to: ${mostRecentPostUri}`);
     }
     
@@ -248,14 +233,71 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
   }
 }
 
-async function agentSessionWasRefreshed(redis: Redis, event: AtpSessionEvent, session: AtpSessionData | undefined) {
+async function processPostForAllFilters(
+  redis: Redis,
+  post: any,
+  postText: string,
+  imageUrls: string[],
+  postUrl: string
+): Promise<void> {
+  // Process post for each configured filter
+  for (const [prefix, handleFilter] of Object.entries(FILTER_CONFIG)) {
+    // Skip if this filter doesn't match the post's author
+    if (handleFilter !== null && post.author.handle !== handleFilter) {
+      continue;
+    }
+    
+    if (hasSkipTag(postText)) {
+      continue;
+    }
+    
+    const processedUrisKey = `${prefix}:processed-uris`;
+    const doodleListKey = `${prefix}:posts`;
+    
+    // Check if already processed for this filter
+    if (await redis.sismember(processedUrisKey, post.uri)) {
+      continue;
+    }
+    
+    // Create separate doodle post for each image
+    for (let i = 0; i < imageUrls.length; i++) {
+      const imageUri = `${post.uri}#image${i}`;
+      
+      // Check if this specific image was already processed for this filter
+      if (await redis.sismember(processedUrisKey, imageUri)) {
+        continue;
+      }
+      
+      const doodlePost: DoodlePost = {
+        uri: imageUri,
+        authorHandle: post.author.handle,
+        authorDisplayName: post.author.displayName || post.author.handle,
+        text: postText,
+        imageUrls: [imageUrls[i]], // Single image per post
+        createdAt: (post.record as any).createdAt,
+        postUrl
+      };
+      
+      // Store in Redis for this filter
+      await redis.lpush(doodleListKey, JSON.stringify(doodlePost));
+      await redis.sadd(processedUrisKey, imageUri);
+      
+      console.log(`Added doodle ${i + 1}/${imageUrls.length} to ${prefix} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
+    }
+    
+    // Also mark the original post URI as processed for this filter
+    await redis.sadd(processedUrisKey, post.uri);
+  }
+}
+
+async function agentSessionWasRefreshed(redis: Redis, sessionPrefix: string, event: AtpSessionEvent, session: AtpSessionData | undefined) {
   if (event === 'update') {
     if (!session) {
       console.error(`Update event but no session!`);
       return;
     }
 
-    await redis.set(REDIS_SESSION_NAME, JSON.stringify(session));
+    await redis.set(`${sessionPrefix}:saved-session`, JSON.stringify(session));
     console.log(`Session updated & saved. Uptime: ~${Number((Date.now() - START_TS) / 1000 / 60).toFixed(0)} minutes.`);
   }
 }
@@ -276,11 +318,18 @@ async function main() {
   let handle: string;
   const agent = new AtpAgent({
     service: 'https://bsky.social',
-    persistSession: agentSessionWasRefreshed.bind(null, redis),
+    // Use 'all-doodles' prefix for session management (shared session)
+    persistSession: agentSessionWasRefreshed.bind(null, redis, 'all-doodles'),
   });
 
+  console.log('Filter configuration:');
+  for (const [prefix, handleFilter] of Object.entries(FILTER_CONFIG)) {
+    console.log(`  ${prefix}: ${handleFilter || 'all users (no filter)'}`);
+  }
+  console.log('');
+
   try {
-    handle = await login(agent, redis);
+    handle = await login(agent, redis, 'all-doodles');
   } catch (e: any) {
     if (e.status === 429 && e.error === 'RateLimitExceeded') {
       console.error(`Login rate limit reached!`);

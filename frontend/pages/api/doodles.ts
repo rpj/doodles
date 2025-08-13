@@ -10,7 +10,8 @@ export default async function handler(
   }
 
   try {
-    const doodles = await getDoodles();
+    const handle = req.query.handle as string | undefined;
+    const doodles = await getDoodles(handle);
     res.status(200).json(doodles);
   } catch (error) {
     console.error('Error fetching doodles:', error);

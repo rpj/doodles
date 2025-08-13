@@ -22,6 +22,11 @@ const BACKFILL_POSTS = [
   'https://bsky.app/profile/ryanjoseph.dev/post/3lvizc7azw22q',
   'https://bsky.app/profile/ryanjoseph.dev/post/3lvjveozfms2k',
   'https://bsky.app/profile/ryanjoseph.dev/post/3lvz2tcmq5k2k',
+  'https://bsky.app/profile/ryanjoseph.dev/post/3lw33akaxac2t',
+  'https://bsky.app/profile/ryanjoseph.dev/post/3lw3w62m3jc26',
+  'https://bsky.app/profile/ryanjoseph.dev/post/3lw62wru7ms2r',
+  'https://bsky.app/profile/ryanjoseph.dev/post/3lwdkoeaknc2l',
+  'https://bsky.app/profile/ryanjoseph.dev/post/3lwhcpqlhzs25',
 ];
 
 async function login(agent: AtpAgent, redis: Redis): Promise<string> {
@@ -77,16 +82,12 @@ function extractImagesFromPost(post: any): string[] {
       images.push(...post.embed.images.map(({ fullsize }: any) => fullsize));
     }
     
-    // Record with media
+    // Record with media (only process images, skip videos)
     if (embedType === 'app.bsky.embed.recordWithMedia#view' && post.embed.media) {
       if (post.embed.media['$type'] === 'app.bsky.embed.images#view' && post.embed.media.images) {
         images.push(...post.embed.media.images.map(({ fullsize }: any) => fullsize));
       }
-    }
-    
-    // Video thumbnails
-    if (embedType === 'app.bsky.embed.video#view' && post.embed.thumbnail) {
-      images.push(post.embed.thumbnail);
+      // Skip videos - we don't want video thumbnails
     }
   }
   

@@ -11,11 +11,16 @@ import styles from '../../styles/Post.module.css';
 
 interface PostPageProps {
   post: DoodlePost | null;
+  backUrl: string;
 }
 
-export default function PostPage({ post }: PostPageProps) {
+export default function PostPage({ post, backUrl }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  
+  // Determine back link text based on URL
+  const isMainPage = backUrl === '/';
+  const backLinkText = isMainPage ? 'Back to all doodles' : 'Back to doodles';
 
   useEffect(() => {
     setMounted(true);
@@ -30,8 +35,8 @@ export default function PostPage({ post }: PostPageProps) {
         <main className={styles.main}>
           <div className={styles.notFound}>
             <h1>Post Not Found</h1>
-            <Link href="/" className={styles.backLink}>
-              ← Back to all doodles
+            <Link href={backUrl} className={styles.backLink}>
+              ← {backLinkText}
             </Link>
           </div>
         </main>
@@ -69,8 +74,8 @@ export default function PostPage({ post }: PostPageProps) {
         </div>
         
         <div className={styles.container}>
-          <Link href="/" className={styles.backLink}>
-            ← Back to all doodles
+          <Link href={backUrl} className={styles.backLink}>
+            ← {backLinkText}
           </Link>
           
           <article className={styles.post}>
@@ -117,6 +122,7 @@ export default function PostPage({ post }: PostPageProps) {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params!;
+  const { ref } = context.query;
   
   try {
     const doodles = await getDoodles();
@@ -125,6 +131,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return {
       props: {
         post: post || null,
+        backUrl: ref ? decodeURIComponent(ref as string) : '/',
       },
     };
   } catch (error) {
@@ -132,6 +139,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return {
       props: {
         post: null,
+        backUrl: '/',
       },
     };
   }

@@ -102,6 +102,41 @@
   background: var(--card-bg);
 }
 
+.author {
+  font-family: 'Fascinate', system-ui;
+  font-size: 0.85rem;
+  font-weight: 400;
+  margin-bottom: 0.5rem;
+  opacity: 0.8;
+}
+
+.author a {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.author a:hover {
+  color: var(--text-color);
+  text-decoration: underline;
+}
+
+.text {
+  font-family: 'Fascinate', system-ui;
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: var(--text-color);
+  opacity: 0.9;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+  text-align: left;
+  max-height: 4.2em; /* 3 lines */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
 .date {
   font-family: 'Fascinate', system-ui;
   font-size: 0.9rem;

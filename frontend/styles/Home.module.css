@@ -335,3 +335,51 @@
     font-size: 1rem;
   }
 }
+
+.backButton {
+  background: none;
+  border: 2px solid var(--card-border);
+  border-radius: 1.25rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  background-color: var(--card-bg);
+  box-shadow: 
+    0 4px 12px var(--shadow-medium),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.backButton:hover {
+  background-color: var(--hover-bg);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px var(--shadow-dark),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.smallText {
+  color: var(--accent-color);
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+
+.userLink {
+  color: var(--accent-color);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-bottom-color 0.2s ease;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.userLink:hover {
+  border-bottom-color: var(--accent-color);
+  opacity: 1;
+}

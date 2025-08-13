@@ -1,4 +1,5 @@
 services:
+  # Unified listener service (handles all modes simultaneously)
   listener:
     build: ./listener
     network_mode: 'host'
@@ -7,12 +8,15 @@ services:
       - BLUESKY_IDENT=${BLUESKY_IDENT}
       - BLUESKY_PASS=${BLUESKY_PASS}
       - DOODLE_POLLING_FREQ_SECONDS=420
+      - DOODLE_FILTERS=${DOODLE_FILTERS:-}
     restart: unless-stopped
 
+  # Unified frontend with path-based routing
   frontend:
     build: ./frontend
     network_mode: 'host'
     environment:
       - REDIS_URL=${REDIS_URL}
+      - PORT=3000
     restart: unless-stopped
 

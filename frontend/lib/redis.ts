@@ -19,9 +19,24 @@ export type DoodlePost = {
   postUrl: string;
 };
 
-export async function getDoodles(): Promise<DoodlePost[]> {
+// Map handles to their redis prefixes
+const HANDLE_TO_PREFIX_MAP: Record<string, string> = {
+  'ryanjoseph.dev': 'doodles',
+};
+
+function getRedisPrefix(handle?: string): string {
+  if (!handle) {
+    return 'all-doodles'; // Default to all doodles
+  }
+  
+  return HANDLE_TO_PREFIX_MAP[handle] || `user-${handle}`;
+}
+
+export async function getDoodles(handle?: string): Promise<DoodlePost[]> {
   const client = getRedisClient();
-  const rawDoodles = await client.lrange('doodles:posts', 0, -1);
+  
+  const redisPrefix = getRedisPrefix(handle);
+  const rawDoodles = await client.lrange(`${redisPrefix}:posts`, 0, -1);
   
   return rawDoodles
     .map(raw => {

@@ -6,26 +6,29 @@ export default function RssXml() {
   return null;
 }
 
-export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+export const getServerSideProps: GetServerSideProps = async ({ res, query }) => {
   try {
-    const doodles = await getDoodles();
+    const handle = query.handle as string | undefined;
+    const doodles = await getDoodles(handle);
+    const isAllTheDoodles = !handle;
     
     const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Daily Doodles</title>
-    <description>@ryanjoseph.dev's collection of daily doodles from Bluesky</description>
-    <link>https://doodles.ryanj.xyz</link>
-    <atom:link href="https://doodles.ryanj.xyz/rss.xml" rel="self" type="application/rss+xml" />
+    <title>${isAllTheDoodles ? 'All The Doodles' : `${handle}'s Daily Doodles`}</title>
+    <description>${isAllTheDoodles ? 'All #DailyDoodle posts from Bluesky' : `@${handle}'s #DailyDoodle posts from Bluesky`}</description>
+    <link>https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doosky.xyz${handle && handle !== 'ryanjoseph.dev' ? `/${handle}` : ''}</link>
+    <atom:link href="https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doosky.xyz/rss.xml${handle && handle !== 'ryanjoseph.dev' ? `?handle=${handle}` : ''}" rel="self" type="application/rss+xml" />
     <language>en</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    <generator>Daily Doodles RSS Generator</generator>
-    <managingEditor>hello@ryanj.xyz (Ryan Joseph)</managingEditor>
-    <webMaster>hello@ryanj.xyz (Ryan Joseph)</webMaster>
+    <generator>${isAllTheDoodles ? 'All The Doodles' : 'Daily Doodles'} RSS Generator</generator>
+    <managingEditor>hello@doosky.xyz (Ryan Joseph)</managingEditor>
+    <webMaster>hello@doosky.xyz (Ryan Joseph)</webMaster>
 ${doodles.slice(0, 50).map(doodle => {
   const cleanText = doodle.text.replace(/#\w+/g, '').trim();
+  const titlePrefix = isAllTheDoodles ? `Doodle by @${doodle.authorHandle}` : 'Daily Doodle';
   return `    <item>
-      <title>Daily Doodle - ${new Date(doodle.createdAt).toLocaleDateString('en-US', { 
+      <title>${titlePrefix} - ${new Date(doodle.createdAt).toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
