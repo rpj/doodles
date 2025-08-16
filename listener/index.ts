@@ -110,8 +110,18 @@ function hasHashtag(text: string, hashtag: string): boolean {
   return text.toLowerCase().includes(hashtag.toLowerCase());
 }
 
-function hasSkipTag(text: string): boolean {
-  return ['#nsfw', '#noindex', '#no-index'].some(check => text.toLowerCase().includes(check));
+function hasSkipTag(text: string, post?: any): boolean {
+  // Check text-based skip tags
+  if (['#nsfw', '#noindex', '#no-index'].some(check => text.toLowerCase().includes(check))) {
+    return true;
+  }
+  
+  // Check for sexual content labels
+  if (post?.labels) {
+    return post.labels.some((label: any) => label.val === 'sexual');
+  }
+  
+  return false;
 }
 
 async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
@@ -247,7 +257,7 @@ async function processPostForAllFilters(
       continue;
     }
     
-    if (hasSkipTag(postText)) {
+    if (hasSkipTag(postText, post)) {
       continue;
     }
     
