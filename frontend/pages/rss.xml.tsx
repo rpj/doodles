@@ -1,5 +1,6 @@
 import { GetServerSideProps } from 'next';
 import { getDoodles } from '../lib/redis';
+import { getPostIdFromUri } from '../lib/utils';
 
 export default function RssXml() {
   // This component will never be rendered, as we handle the response in getServerSideProps
@@ -36,7 +37,7 @@ ${doodles.slice(0, 50).map(doodle => {
       <description><![CDATA[${cleanText ? cleanText + '<br/><br/>' : ''}${doodle.imageUrls.map(url => 
         `<img src="${url}" alt="Daily Doodle" />`
       ).join('<br/>')}]]></description>
-      <link>${doodle.postUrl}</link>
+      <link>https://doosky.xyz/${handle === 'ryanjoseph.dev' ? `${handle}/` : ''}post/${getPostIdFromUri(doodle.uri).replace('#', '%23')}</link>
       <guid isPermaLink="false">${doodle.uri}</guid>
       <pubDate>${new Date(doodle.createdAt).toUTCString()}</pubDate>
     </item>`;
