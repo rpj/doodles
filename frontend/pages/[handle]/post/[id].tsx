@@ -4,23 +4,19 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getDoodles, DoodlePost } from '../../lib/redis';
-import { getPostIdFromUri } from '../../lib/utils';
-import { useTheme } from '../../contexts/ThemeContext';
-import styles from '../../styles/Post.module.css';
+import { getDoodles, DoodlePost } from '../../../lib/redis';
+import { getPostIdFromUri } from '../../../lib/utils';
+import { useTheme } from '../../../contexts/ThemeContext';
+import styles from '../../../styles/Post.module.css';
 
 interface PostPageProps {
   post: DoodlePost | null;
-  backUrl: string;
+  handle: string;
 }
 
-export default function PostPage({ post, backUrl }: PostPageProps) {
+export default function HandlePostPage({ post, handle }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  
-  // Determine back link text based on URL
-  const isMainPage = backUrl === '/';
-  const backLinkText = isMainPage ? 'Back to all doodles' : 'Back to doodles';
 
   useEffect(() => {
     setMounted(true);
@@ -35,8 +31,8 @@ export default function PostPage({ post, backUrl }: PostPageProps) {
         <main className={styles.main}>
           <div className={styles.notFound}>
             <h1>Post Not Found</h1>
-            <Link href={backUrl} className={styles.backLink}>
-              ← {backLinkText}
+            <Link href={`/${handle}`} className={styles.backLink}>
+              ← Back to @{handle}'s doodles
             </Link>
           </div>
         </main>
@@ -44,12 +40,13 @@ export default function PostPage({ post, backUrl }: PostPageProps) {
     );
   }
 
-  const cleanText = post.text.trim();
+  const cleanText = post.text.replace(/#\w+/g, '').trim();
+  const isRyan = handle === 'ryanjoseph.dev';
 
   return (
     <>
       <Head>
-        <title>{`Daily Doodle - ${format(new Date(post.createdAt), 'MMM d, yyyy')}`}</title>
+        <title>{`${isRyan ? 'Daily Doodle' : `@${handle}'s Doodle`} - ${format(new Date(post.createdAt), 'MMM d, yyyy')}`}</title>
         <meta name="description" content={`A daily doodle from ${post.authorDisplayName}`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -74,8 +71,8 @@ export default function PostPage({ post, backUrl }: PostPageProps) {
         </div>
         
         <div className={styles.container}>
-          <Link href={backUrl} className={styles.backLink}>
-            ← {backLinkText}
+          <Link href={`/${handle}`} className={styles.backLink}>
+            ← Back to @{handle}'s doodles
           </Link>
           
           <article className={styles.post}>
@@ -121,17 +118,16 @@ export default function PostPage({ post, backUrl }: PostPageProps) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { id } = context.params!;
-  const { ref } = context.query;
+  const { handle, id } = context.params!;
   
   try {
-    const doodles = await getDoodles();
+    const doodles = await getDoodles(handle as string);
     const post = doodles.find(doodle => getPostIdFromUri(doodle.uri) === decodeURIComponent(id as string));
     
     return {
       props: {
         post: post || null,
-        backUrl: ref ? decodeURIComponent(ref as string) : '/',
+        handle: handle as string,
       },
     };
   } catch (error) {
@@ -139,7 +135,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return {
       props: {
         post: null,
-        backUrl: '/',
+        handle: handle as string,
       },
     };
   }
