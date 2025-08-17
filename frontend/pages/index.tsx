@@ -40,7 +40,7 @@ export default function Home() {
     <>
       <Head>
         <title>All The Doodles</title>
-        <meta name="description" content="All #DailyDoodle on Bluesky" />
+        <meta name="description" content="All #DailyDoodles on Bluesky" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -88,9 +88,9 @@ export default function Home() {
         <header className={styles.header}>
           <h1 className={styles.title}>All The Doodles</h1>
           <p className={styles.subtitle}>
-            All <a href="https://bsky.app/hashtag/DailyDoodle" target="_blank">#DailyDoodle</a> on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
+            All <a href="https://bsky.app/hashtag/DailyDoodle" target="_blank">#DailyDoodle</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
             <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev's doodles</a><br/>
-            <span className={styles.smallText}>Want your own page? Slide into those <a href="https://bsky.app/profile/ryanjoseph.dev">DMs...</a></span>
+            <span className={styles.smallText}>Want your own? Hit <a href="https://bsky.app/profile/ryanjoseph.dev">me</a> up.</span>
           </p>
         </header>
 

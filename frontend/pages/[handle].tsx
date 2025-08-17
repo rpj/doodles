@@ -54,7 +54,7 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
   return (
     <>
       <Head>
-        <title>{isRyan ? 'Daily Doodles' : handleStr ? `${handleStr}'s Daily Doodles` : 'Daily Doodles'}</title>
+        <title>{isRyan ? 'Daily Doodles' : handleStr ? `${handleStr.replace('.bsky.social', '')}'s Daily Doodles` : 'Daily Doodles'}</title>
         <meta name="description" content={isRyan ? "@ryanjoseph.dev's collection of daily doodles from Bluesky" : handleStr ? `${handleStr}'s #DailyDoodle posts from Bluesky` : 'Daily doodles from Bluesky'} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
