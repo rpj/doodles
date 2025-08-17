@@ -50,7 +50,7 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
   }
 
   const isRyan = handleStr === 'ryanjoseph.dev';
-  const handleShort = handleStr.replace('.bsky.social', '');
+  const handleShort = handleStr?.replace('.bsky.social', '') ?? '';
 
   return (
     <>
