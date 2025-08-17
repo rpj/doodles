@@ -50,12 +50,13 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
   }
 
   const isRyan = handleStr === 'ryanjoseph.dev';
+  const handleShort = handleStr.replace('.bsky.social', '');
 
   return (
     <>
       <Head>
-        <title>{isRyan ? 'Daily Doodles' : handleStr ? `${handleStr.replace('.bsky.social', '')}'s Daily Doodles` : 'Daily Doodles'}</title>
-        <meta name="description" content={isRyan ? "@ryanjoseph.dev's collection of daily doodles from Bluesky" : handleStr ? `${handleStr}'s #DailyDoodle posts from Bluesky` : 'Daily doodles from Bluesky'} />
+        <title>{isRyan ? 'Daily Doodles' : (handleStr ? `${handleShort}'s Daily Doodles` : 'Daily Doodles')}</title>
+        <meta name="description" content={isRyan ? "@ryanjoseph.dev's collection of daily doodles from Bluesky" : handleStr ? `${handleShort}'s #DailyDoodle posts from Bluesky` : 'Daily doodles from Bluesky'} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -108,7 +109,7 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
         </div>
         
         <header className={styles.header}>
-          <h1 className={styles.title}>{isRyan ? 'Daily Doodles' : `${handleStr}'s Doodles`}</h1>
+          <h1 className={styles.title}>{isRyan ? 'Daily Doodles' : `${handleShort}'s Doodles`}</h1>
           <p className={styles.subtitle}>
             {isRyan ? (
               <>
@@ -117,7 +118,8 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
               </>
             ) : (
               <>
-                <a href={`https://bsky.app/profile/${handleStr}`} target="_blank">@{handleStr}</a>'s #DailyDoodle posts from Bluesky
+                <a href={`https://bsky.app/profile/${handleStr}`} target="_blank">@{handleStr}</a>'s&nbsp; 
+                <a href={`https://bsky.app/hashtag/dailydoodle?author=${handleStr}`} target="_blank">#DailyDoodle</a>s
               </>
             )}
           </p>
