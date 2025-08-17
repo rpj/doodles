@@ -10,16 +10,26 @@ interface DoodleCardProps {
   doodle: DoodlePost;
   isHero?: boolean;
   userHandle?: string; // The handle context for routing (undefined for main page)
+  customUsers?: string[]; // List of custom users for routing decisions on main page
 }
 
-export default function DoodleCard({ doodle, isHero = false, userHandle }: DoodleCardProps) {
+export default function DoodleCard({ doodle, isHero = false, userHandle, customUsers = [] }: DoodleCardProps) {
   const postId = getPostIdFromUri(doodle.uri);
   const isMainPage = !userHandle; // If no userHandle context, we're on the main page
   
   // Generate the appropriate post link based on context
-  const postLink = userHandle 
-    ? `/${userHandle}/post/${encodeURIComponent(postId)}` // User page: /[handle]/post/[id]
-    : `/post/${encodeURIComponent(postId)}?ref=${encodeURIComponent('/')}`; // Main page: /post/[id] with ref back to main
+  let postLink: string;
+  
+  if (userHandle) {
+    // User page: /[handle]/post/[id]
+    postLink = `/${userHandle}/post/${encodeURIComponent(postId)}`;
+  } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
+    // Main page but author is a custom user: route to their user page
+    postLink = `/${doodle.authorHandle}/post/${encodeURIComponent(postId)}`;
+  } else {
+    // Main page: /post/[id] with ref back to main
+    postLink = `/post/${encodeURIComponent(postId)}?ref=${encodeURIComponent('/')}`;
+  }
   
   return (
     <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>

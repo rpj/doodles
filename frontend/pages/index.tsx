@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { DoodlePost } from '../lib/redis';
+import { DoodlePost, getCustomUsers } from '../lib/redis';
 import DoodleCard from '../components/DoodleCard';
 import { useTheme } from '../contexts/ThemeContext';
 import styles from '../styles/Home.module.css';
@@ -9,10 +9,12 @@ export default function Home() {
   const [doodles, setDoodles] = useState<DoodlePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [customUsers, setCustomUsers] = useState<string[]>([]);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     fetchDoodles();
+    fetchCustomUsers();
     
     // Refresh every 5 minutes
     const interval = setInterval(fetchDoodles, 5 * 60 * 1000);
@@ -33,6 +35,18 @@ export default function Home() {
       console.error('Error fetching doodles:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchCustomUsers() {
+    try {
+      const response = await fetch('/api/custom-users');
+      if (response.ok) {
+        const users = await response.json();
+        setCustomUsers(users);
+      }
+    } catch (err) {
+      console.error('Error fetching custom users:', err);
     }
   }
 
@@ -111,7 +125,11 @@ export default function Home() {
         {!loading && !error && doodles.length > 0 && (
           <div className={styles.grid}>
             {doodles.map((doodle) => (
-              <DoodleCard key={doodle.uri} doodle={doodle} />
+              <DoodleCard 
+                key={doodle.uri} 
+                doodle={doodle} 
+                customUsers={customUsers}
+              />
             ))}
           </div>
         )}

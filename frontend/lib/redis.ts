@@ -25,6 +25,11 @@ async function getHandleToPrefixMap(): Promise<Record<string, string>> {
   return mappings;
 }
 
+export async function getCustomUsers(): Promise<string[]> {
+  const mappings = await getHandleToPrefixMap();
+  return Object.keys(mappings);
+}
+
 async function getRedisPrefix(handle?: string): Promise<string> {
   if (!handle) {
     return 'all-doodles'; // Default to all doodles
