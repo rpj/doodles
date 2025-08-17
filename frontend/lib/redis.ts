@@ -19,23 +19,25 @@ export type DoodlePost = {
   postUrl: string;
 };
 
-// Map handles to their redis prefixes
-const HANDLE_TO_PREFIX_MAP: Record<string, string> = {
-  'ryanjoseph.dev': 'doodles',
-};
+async function getHandleToPrefixMap(): Promise<Record<string, string>> {
+  const client = getRedisClient();
+  const mappings = await client.hgetall('__doodles:users');
+  return mappings;
+}
 
-function getRedisPrefix(handle?: string): string {
+async function getRedisPrefix(handle?: string): Promise<string> {
   if (!handle) {
     return 'all-doodles'; // Default to all doodles
   }
   
-  return HANDLE_TO_PREFIX_MAP[handle] || `user-${handle}`;
+  const mappings = await getHandleToPrefixMap();
+  return mappings[handle] || `user-${handle}`;
 }
 
 export async function getDoodles(handle?: string): Promise<DoodlePost[]> {
   const client = getRedisClient();
   
-  const redisPrefix = getRedisPrefix(handle);
+  const redisPrefix = await getRedisPrefix(handle);
   const rawDoodles = await client.lrange(`${redisPrefix}:posts`, 0, -1);
   
   return rawDoodles

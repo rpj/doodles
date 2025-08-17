@@ -8,7 +8,6 @@ services:
       - BLUESKY_IDENT=${BLUESKY_IDENT}
       - BLUESKY_PASS=${BLUESKY_PASS}
       - DOODLE_POLLING_FREQ_SECONDS=179
-      - DOODLE_FILTERS=${DOODLE_FILTERS:-}
     restart: unless-stopped
 
   # Unified frontend with path-based routing

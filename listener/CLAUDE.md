@@ -56,7 +56,7 @@ type DoodlePost = {
 **Redis Prefixes:**
 - `all-doodles:*` - All #DailyDoodle posts from any user (filters NSFW)
 - `doodles:*` - Only posts from ryanjoseph.dev
-- `user-[handle]:*` - Posts from additional specific users (configured via DOODLE_FILTERS)
+- `doodles-kaciecamilli:*` - Posts from kaciecamilli.bsky.social
 
 Each prefix maintains:
 - `posts` - List of serialized DoodlePost objects
@@ -86,7 +86,6 @@ Required:
 
 Optional:
 - `DOODLE_POLLING_FREQ_SECONDS` - Polling interval (default: 300)
-- `DOODLE_FILTERS` - Additional user filters in format `handle1:prefix1,handle2:prefix2`
 
 ## Development Workflow
 

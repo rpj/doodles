@@ -40,9 +40,9 @@ npm run lint          # ESLint
 ## Architecture
 
 ### Service Architecture
-- **Listener**: Unified service that polls Bluesky every ~5 minutes for #DailyDoodle posts and fans them out to multiple Redis prefixes based on configurable filters. Supports unlimited handle-based filtering via environment variables.
+- **Listener**: Unified service that polls Bluesky every ~5 minutes for #DailyDoodle posts and fans them out to multiple Redis prefixes based on configurable filters. Supports handle-based filtering via shared configuration.
 - **Frontend**: Next.js app with path-based routing: `/` shows all doodles, `/[handle]` shows user-specific doodles. Server-side rendering with auto-refresh gallery.
-- **Redis**: Stores processed posts using configurable prefixes (`all-doodles:*` for all posts, `doodles:*` for ryanjoseph.dev, `user-[handle]:*` for additional users)
+- **Redis**: Stores processed posts using configurable prefixes (`all-doodles:*` for all posts, `doodles:*` for ryanjoseph.dev, `doodles-kaciecamilli:*` for kaciecamilli.bsky.social)
 
 ### Key Data Structure
 ```typescript
@@ -74,15 +74,14 @@ Art Deco-inspired black/white design with metallic silver accents. Uses CSS cust
 - `BLUESKY_PASS` - Bluesky app password (required)  
 - `REDIS_URL` - Redis connection string (defaults to redis://localhost:6379)
 - `DOODLE_POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
-- `DOODLE_FILTERS` - Additional user filters in format `handle1:prefix1,handle2:prefix2` (optional)
 
 ### Filter Configuration
-The listener now supports multiple filter modes simultaneously:
+The listener supports multiple filter modes simultaneously:
 - **All Doodles** (`all-doodles:*` prefix): Collects all #DailyDoodle posts, filters NSFW content
-- **Personal Posts** (`doodles:*` prefix): Only ryanjoseph.dev posts (hardcoded)  
-- **Custom Users** (`user-[handle]:*` prefix): Additional users via `DOODLE_FILTERS` environment variable
+- **Personal Posts** (`doodles:*` prefix): Only ryanjoseph.dev posts  
+- **Specific Users**: Additional users configured in `shared/config.js`
 
-Example: `DOODLE_FILTERS=artist.bsky.social:artist-doodles,creative.bsky.social:creative-doodles`
+Filter mappings are centrally managed in `shared/config.js` to avoid duplication between frontend and listener.
 
 ## Docker Configuration
 Uses `network_mode: 'host'` for both services. Services auto-restart unless manually stopped. Environment variables sourced from host `.env` file.

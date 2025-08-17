@@ -8,24 +8,18 @@ const START_TS = Date.now();
 
 const POLLING_FREQ_SECONDS = Number.parseInt(process.env.DOODLE_POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
 
-// Filter configuration: maps redis prefixes to Bluesky handles
-// 'all-doodles' is special - it collects all posts (no handle filter)
-// Other entries filter posts to specific handles
-const FILTER_CONFIG: Record<string, string | null> = {
-  'all-doodles': null, // null means no handle filtering (all users)
-  'doodles': 'ryanjoseph.dev', // personal posts
-};
-
-// Add any additional filters from environment variables
-// Format: DOODLE_FILTERS=handle1:prefix1,handle2:prefix2
-if (process.env.DOODLE_FILTERS) {
-  const additionalFilters = process.env.DOODLE_FILTERS.split(',');
-  for (const filter of additionalFilters) {
-    const [handle, prefix] = filter.split(':');
-    if (handle && prefix) {
-      FILTER_CONFIG[prefix] = handle;
-    }
+async function getFilterConfig(redis: Redis): Promise<Record<string, string | null>> {
+  const config: Record<string, string | null> = {
+    'all-doodles': null, // null means no handle filtering (all users)
+  };
+  
+  // Get handle-to-prefix mappings from Redis
+  const mappings = await redis.hgetall('__doodles:users');
+  for (const [handle, prefix] of Object.entries(mappings)) {
+    config[prefix] = handle;
   }
+  
+  return config;
 }
 
 const HASHTAG_TO_WATCH = '#DailyDoodle';
@@ -127,6 +121,9 @@ function hasSkipTag(text: string, post?: any): boolean {
 async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
   console.log(`Searching for posts with ${HASHTAG_TO_WATCH}...`);
   
+  // Get current filter configuration from Redis
+  const FILTER_CONFIG = await getFilterConfig(redis);
+  
   try {
     // Get the most recently seen post URI
     const lastSeenPostUri = await redis.get('all-doodles:last-seen-post');
@@ -225,7 +222,7 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
       const postUrl = `https://bsky.app/profile/${post.author.handle}/post/${urlId}`;
       
       // Fan out to all configured filters
-      await processPostForAllFilters(redis, post, postText, imageUrls, postUrl);
+      await processPostForAllFilters(redis, post, postText, imageUrls, postUrl, FILTER_CONFIG);
       
       processedCount++;
     }
@@ -248,10 +245,11 @@ async function processPostForAllFilters(
   post: any,
   postText: string,
   imageUrls: string[],
-  postUrl: string
+  postUrl: string,
+  filterConfig: Record<string, string | null>
 ): Promise<void> {
   // Process post for each configured filter
-  for (const [prefix, handleFilter] of Object.entries(FILTER_CONFIG)) {
+  for (const [prefix, handleFilter] of Object.entries(filterConfig)) {
     // Skip if this filter doesn't match the post's author
     if (handleFilter !== null && post.author.handle !== handleFilter) {
       continue;
@@ -332,6 +330,7 @@ async function main() {
     persistSession: agentSessionWasRefreshed.bind(null, redis, 'all-doodles'),
   });
 
+  const FILTER_CONFIG = await getFilterConfig(redis);
   console.log('Filter configuration:');
   for (const [prefix, handleFilter] of Object.entries(FILTER_CONFIG)) {
     console.log(`  ${prefix}: ${handleFilter || 'all users (no filter)'}`);
