@@ -12,16 +12,12 @@ type DoodlePost = {
   postUrl: string,
 };
 
-// All known prefixes that could contain posts
-const ALL_PREFIXES = ['all-doodles', 'doodles'];
-
 async function getAllPrefixes(redis: Redis): Promise<string[]> {
-  const prefixes = [...ALL_PREFIXES];
+  const prefixes = ['all-doodles'];
   
-  // Find user-* prefixes dynamically
-  const keys = await redis.keys('user-*:posts');
-  for (const key of keys) {
-    const prefix = key.replace(':posts', '');
+  // Get all user prefixes from the Redis hash
+  const userPrefixes = await redis.hvals('__doodles:users');
+  for (const prefix of userPrefixes) {
     if (!prefixes.includes(prefix)) {
       prefixes.push(prefix);
     }
