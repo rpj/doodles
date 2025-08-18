@@ -35,8 +35,16 @@ async function getRedisPrefix(handle?: string): Promise<string> {
     return 'all-doodles'; // Default to all doodles
   }
   
+  // Sanitize handle to prevent Redis command injection
+  // Only allow alphanumeric, dots, hyphens, and underscores
+  if (!/^[a-zA-Z0-9._-]+$/.test(handle)) {
+    throw new Error('Invalid handle format');
+  }
+  
   const mappings = await getHandleToPrefixMap();
-  return mappings[handle] || `user-${handle}`;
+  // Use mapping if exists, otherwise construct safe key
+  // The handle is now sanitized, safe to use in Redis key
+  return mappings[handle] || `user-${handle.replace(/[^a-zA-Z0-9._-]/g, '')}`;
 }
 
 export async function getDoodles(handle?: string): Promise<DoodlePost[]> {
