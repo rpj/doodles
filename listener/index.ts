@@ -23,7 +23,8 @@ async function getFilterConfig(redis: Redis): Promise<Record<string, string | nu
 }
 
 const HASHTAG_TO_WATCH = '#DailyDoodle';
-const SEARCH_BATCH_SIZE = 25;
+const SEARCH_BATCH_SIZE = 100;
+const maxBatches = 20; // Safety limit to prevent infinite loops
 
 type DoodlePost = {
   uri: string,
@@ -134,7 +135,6 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
     let foundLastSeenPost = false;
     let batchCount = 0;
     let allPostsCount = 0;
-    const maxBatches = 20; // Safety limit to prevent infinite loops
     
     // Search in batches until we find the last seen post or hit limits
     while (!foundLastSeenPost && batchCount < maxBatches) {
