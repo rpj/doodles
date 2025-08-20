@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getDoodles, DoodlePost } from '../../lib/redis';
+import { getDoodles, DoodlePost, PaginatedDoodles } from '../../lib/redis';
 import { rateLimit, cors, validateHandle, runMiddleware } from '../../lib/api-middleware';
 
 // Configure rate limiting: 100 requests per minute
@@ -20,7 +20,7 @@ const corsMiddleware = cors({
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<DoodlePost[] | { error: string }>
+  res: NextApiResponse<DoodlePost[] | PaginatedDoodles | { error: string }>
 ) {
   // Apply CORS middleware
   await runMiddleware(req, res, corsMiddleware);
@@ -37,8 +37,19 @@ export default async function handler(
     const rawHandle = req.query.handle as string | undefined;
     const handle = validateHandle(rawHandle);
     
-    const doodles = await getDoodles(handle || undefined);
-    res.status(200).json(doodles);
+    // Parse pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 50;
+    const paginate = req.query.paginate === 'true';
+    
+    if (paginate) {
+      const result = await getDoodles(handle || undefined, page, pageSize);
+      res.status(200).json(result);
+    } else {
+      // Backward compatibility - return all doodles as array
+      const result = await getDoodles(handle || undefined, 1, -1);
+      res.status(200).json(result.doodles);
+    }
   } catch (error) {
     // Check if it's a validation error
     if (error instanceof Error && error.message.includes('Invalid handle')) {

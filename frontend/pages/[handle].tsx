@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GetServerSideProps } from 'next';
-import { DoodlePost } from '../lib/redis';
+import { DoodlePost, PaginatedDoodles } from '../lib/redis';
 import DoodleCard from '../components/DoodleCard';
+import Pagination from '../components/Pagination';
 import { useTheme } from '../contexts/ThemeContext';
 import styles from '../styles/Home.module.css';
 
@@ -15,31 +17,50 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
   const [doodles, setDoodles] = useState<DoodlePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const { handle } = router.query;
   const handleStr = serverHandle || (Array.isArray(handle) ? handle[0] : handle);
 
+  // Update current page from URL query parameter
   useEffect(() => {
-    if (!handle) return;
-    
-    fetchDoodles();
-    
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchDoodles, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [handle]);
+    if (router.isReady) {
+      const page = parseInt(router.query.page as string) || 1;
+      setCurrentPage(page);
+    }
+  }, [router.isReady, router.query.page]);
 
-  async function fetchDoodles() {
+  // Fetch doodles when page or handle changes
+  useEffect(() => {
+    if (!handle || !router.isReady) return;
+    
+    fetchDoodles(currentPage);
+  }, [handle, currentPage, router.isReady]);
+  
+  useEffect(() => {
+    if (!handle || !router.isReady) return;
+    
+    // Refresh every 5 minutes (but only current page)
+    const interval = setInterval(() => fetchDoodles(currentPage), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [handle, currentPage, router.isReady]);
+
+  async function fetchDoodles(page: number = 1) {
     if (!handle) return;
     
     try {
-      const response = await fetch(`/api/doodles?handle=${handle}`);
+      setLoading(true);
+      const response = await fetch(`/api/doodles?handle=${handle}&paginate=true&page=${page}&pageSize=50`);
       if (!response.ok) {
         throw new Error('Failed to fetch doodles');
       }
-      const data = await response.json();
-      setDoodles(data);
+      const data: PaginatedDoodles = await response.json();
+      setDoodles(data.doodles);
+      setHasMore(data.hasMore);
+      setTotalPages(Math.ceil(data.totalCount / data.pageSize));
       setError(null);
     } catch (err) {
       setError('Unable to load doodles');
@@ -62,13 +83,13 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
       
       <main className={styles.main}>
         <div className={styles.topButtons}>
-          <a 
+          <Link 
             href="/"
             className={styles.backButton}
             aria-label="Back to All The Doodles"
           >
             ← All Doodles
-          </a>
+          </Link>
           <a 
             href="https://github.com/rpj/doodles"
             target="_blank"
@@ -87,7 +108,7 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
           >
             <svg viewBox="-271 273 256 256" fill="currentColor" width="18" height="18">
               <path d="M-271,360v48.9c31.9,0,62.1,12.6,84.7,35.2c22.6,22.6,35.1,52.8,35.1,84.8v0.1h49.1c0-46.6-19-88.7-49.6-119.4C-182.2,379-224.4,360.1-271,360z"/>
-              <path d="M-237,460.9c-9.4,0-17.8,3.8-24,10s-10,14.6-10,24c0,9.3,3.8,17.7,10,23.9c6.2,6.1,14.6,9.9,24,9.9s17.8-3.7,24-9.9s10-14.6-10-23.9c0-9.4-3.8-17.8-10-24C-219.2,464.7-227.6,460.9-237,460.9z"/>
+              <path d="M-237,460.9c-9.4,0-17.8,3.8-24,10s-10,14.6-10,24c0,9.3,3.8,17.7,10,23.9c6.2,6.1,14.6,9.9,24,9.9s17.8-3.7,24-9.9s10-14.6,10-23.9c0-9.4-3.8-17.8-10-24C-219.2,464.7-227.6,460.9-237,460.9z"/>
               <path d="M-90.1,348.1c-46.3-46.4-110.2-75.1-180.8-75.1v48.9C-156.8,322-64.1,414.9-64,529h49C-15,458.4-43.7,394.5-90.1,348.1z"/>
             </svg>
           </a>
@@ -141,19 +162,24 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
 
         {!loading && !error && doodles.length > 0 && (
           <>
-            {doodles.length > 0 && (
+            {doodles.length > 0 && currentPage === 1 && (
               <div className={styles.heroSection}>
                 <DoodleCard key={doodles[0].uri} doodle={doodles[0]} isHero={true} userHandle={handleStr} />
               </div>
             )}
             
-            {doodles.length > 1 && (
+            {(currentPage === 1 ? doodles.slice(1) : doodles).length > 0 && (
               <div className={styles.grid}>
-                {doodles.slice(1).map((doodle) => (
+                {(currentPage === 1 ? doodles.slice(1) : doodles).map((doodle) => (
                   <DoodleCard key={doodle.uri} doodle={doodle} userHandle={handleStr} />
                 ))}
               </div>
             )}
+            
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+            />
           </>
         )}
       </main>

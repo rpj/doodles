@@ -2,9 +2,9 @@ import { AtpAgent, ComAtprotoServerCreateSession, AtpSessionEvent, AtpSessionDat
 import { Redis } from 'ioredis';
 import { input } from '@inquirer/prompts';
 
-const REDIS_SET_NAME = `doodles:processed-uris`;
-const REDIS_DOODLE_LIST = `doodles:posts`;
-const REDIS_SESSION_NAME = `doodles:saved-session`;
+const REDIS_SET_NAME = `all-doodles:processed-uris`;
+const REDIS_DOODLE_LIST = `all-doodles:posts`;
+const REDIS_SESSION_NAME = `all-doodles:saved-session`;
 
 type DoodlePost = {
   uri: string,
@@ -161,6 +161,16 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
       // Store in Redis (using RPUSH to maintain chronological order)
       await redis.rpush(REDIS_DOODLE_LIST, JSON.stringify(doodlePost));
       await redis.sadd(REDIS_SET_NAME, imageUri);
+      
+      // Store the full post data with URI as key
+      await redis.set(`post:${imageUri}`, JSON.stringify(doodlePost));
+      
+      // Update handle list with URI instead of index
+      const handleKey = `handle:${post.author?.handle || handle}:posts`;
+      await redis.rpush(handleKey, imageUri);
+      
+      // Add handle to the set of all handles
+      await redis.sadd('handles:all', post.author?.handle || handle);
       
       console.log(`Backfilled doodle ${i + 1}/${imageUrls.length} from @${post.author?.handle || handle}: "${doodlePost.text.substring(0, 50)}..."`);
     }

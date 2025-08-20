@@ -125,8 +125,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { ref } = context.query;
   
   try {
-    const doodles = await getDoodles();
-    const post = doodles.find(doodle => getPostIdFromUri(doodle.uri) === decodeURIComponent(id as string));
+    const doodlesData = await getDoodles();
+    const post = doodlesData.doodles.find(doodle => getPostIdFromUri(doodle.uri) === decodeURIComponent(id as string));
     
     return {
       props: {

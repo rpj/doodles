@@ -8,19 +8,7 @@ const START_TS = Date.now();
 
 const POLLING_FREQ_SECONDS = Number.parseInt(process.env.DOODLE_POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
 
-async function getFilterConfig(redis: Redis): Promise<Record<string, string | null>> {
-  const config: Record<string, string | null> = {
-    'all-doodles': null, // null means no handle filtering (all users)
-  };
-  
-  // Get handle-to-prefix mappings from Redis
-  const mappings = await redis.hgetall('__doodles:users');
-  for (const [handle, prefix] of Object.entries(mappings)) {
-    config[prefix] = handle;
-  }
-  
-  return config;
-}
+// Removed getFilterConfig - no longer needed with unified storage
 
 const HASHTAG_TO_WATCH = '#DailyDoodle';
 const SEARCH_BATCH_SIZE = 100;
@@ -122,9 +110,6 @@ function hasSkipTag(text: string, post?: any): boolean {
 async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
   console.log(`Searching for posts with ${HASHTAG_TO_WATCH}...`);
   
-  // Get current filter configuration from Redis
-  const FILTER_CONFIG = await getFilterConfig(redis);
-  
   try {
     // Get the most recently seen post URI
     const lastSeenPostUri = await redis.get('all-doodles:last-seen-post');
@@ -221,8 +206,8 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
       const [, , , , urlId] = post.uri.split('/');
       const postUrl = `https://bsky.app/profile/${post.author.handle}/post/${urlId}`;
       
-      // Fan out to all configured filters
-      await processPostForAllFilters(redis, post, postText, imageUrls, postUrl, FILTER_CONFIG);
+      // Process and store the post
+      await processPost(redis, post, postText, imageUrls, postUrl);
       
       processedCount++;
     }
@@ -240,62 +225,64 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
   }
 }
 
-async function processPostForAllFilters(
+async function processPost(
   redis: Redis,
   post: any,
   postText: string,
   imageUrls: string[],
-  postUrl: string,
-  filterConfig: Record<string, string | null>
+  postUrl: string
 ): Promise<void> {
-  // Process post for each configured filter
-  for (const [prefix, handleFilter] of Object.entries(filterConfig)) {
-    // Skip if this filter doesn't match the post's author
-    if (handleFilter !== null && post.author.handle !== handleFilter) {
-      continue;
-    }
-    
-    if (hasSkipTag(postText, post)) {
-      continue;
-    }
-    
-    const processedUrisKey = `${prefix}:processed-uris`;
-    const doodleListKey = `${prefix}:posts`;
-    
-    // Check if already processed for this filter
-    if (await redis.sismember(processedUrisKey, post.uri)) {
-      continue;
-    }
-    
-    // Create separate doodle post for each image
-    for (let i = 0; i < imageUrls.length; i++) {
-      const imageUri = `${post.uri}#image${i}`;
-      
-      // Check if this specific image was already processed for this filter
-      if (await redis.sismember(processedUrisKey, imageUri)) {
-        continue;
-      }
-      
-      const doodlePost: DoodlePost = {
-        uri: imageUri,
-        authorHandle: post.author.handle,
-        authorDisplayName: post.author.displayName || post.author.handle,
-        text: postText,
-        imageUrls: [imageUrls[i]], // Single image per post
-        createdAt: (post.record as any).createdAt,
-        postUrl
-      };
-      
-      // Store in Redis for this filter
-      await redis.lpush(doodleListKey, JSON.stringify(doodlePost));
-      await redis.sadd(processedUrisKey, imageUri);
-      
-      console.log(`Added doodle ${i + 1}/${imageUrls.length} to ${prefix} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
-    }
-    
-    // Also mark the original post URI as processed for this filter
-    await redis.sadd(processedUrisKey, post.uri);
+  // Skip NSFW/noindex content
+  if (hasSkipTag(postText, post)) {
+    return;
   }
+  
+  const processedUrisKey = 'all-doodles:processed-uris';
+  const doodleListKey = 'all-doodles:posts';
+  
+  // Check if already processed
+  if (await redis.sismember(processedUrisKey, post.uri)) {
+    return;
+  }
+  
+  // Create separate doodle post for each image
+  for (let i = 0; i < imageUrls.length; i++) {
+    const imageUri = `${post.uri}#image${i}`;
+    
+    // Check if this specific image was already processed
+    if (await redis.sismember(processedUrisKey, imageUri)) {
+      continue;
+    }
+    
+    const doodlePost: DoodlePost = {
+      uri: imageUri,
+      authorHandle: post.author.handle,
+      authorDisplayName: post.author.displayName || post.author.handle,
+      text: postText,
+      imageUrls: [imageUrls[i]], // Single image per post
+      createdAt: (post.record as any).createdAt,
+      postUrl
+    };
+    
+    // Store in Redis - main list for backwards compatibility
+    await redis.lpush(doodleListKey, JSON.stringify(doodlePost));
+    await redis.sadd(processedUrisKey, imageUri);
+    
+    // Store the full post data with URI as key
+    await redis.set(`post:${imageUri}`, JSON.stringify(doodlePost));
+    
+    // Update handle list with URI instead of index
+    const handleKey = `handle:${post.author.handle}:posts`;
+    await redis.lpush(handleKey, imageUri);
+    
+    // Add handle to the set of all handles
+    await redis.sadd('handles:all', post.author.handle);
+    
+    console.log(`Added doodle ${i + 1}/${imageUrls.length} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
+  }
+  
+  // Also mark the original post URI as processed
+  await redis.sadd(processedUrisKey, post.uri);
 }
 
 async function agentSessionWasRefreshed(redis: Redis, sessionPrefix: string, event: AtpSessionEvent, session: AtpSessionData | undefined) {
@@ -330,11 +317,7 @@ async function main() {
     persistSession: agentSessionWasRefreshed.bind(null, redis, 'all-doodles'),
   });
 
-  const FILTER_CONFIG = await getFilterConfig(redis);
-  console.log('Filter configuration:');
-  for (const [prefix, handleFilter] of Object.entries(FILTER_CONFIG)) {
-    console.log(`  ${prefix}: ${handleFilter || 'all users (no filter)'}`);
-  }
+  console.log('Starting unified listener (all posts stored in all-doodles:*)');
   console.log('');
 
   try {

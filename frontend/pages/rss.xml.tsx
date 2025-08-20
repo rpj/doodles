@@ -31,7 +31,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res, query }) => 
       }
     }
     
-    const doodles = await getDoodles(handle);
+    const doodlesData = await getDoodles(handle);
     const isAllTheDoodles = !handle;
     
     const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -39,14 +39,14 @@ export const getServerSideProps: GetServerSideProps = async ({ res, query }) => 
   <channel>
     <title>${isAllTheDoodles ? 'All The Doodles' : `${escapeXml(handle!)}'s Daily Doodles`}</title>
     <description>${isAllTheDoodles ? 'All #DailyDoodle posts from Bluesky' : `@${escapeXml(handle!)}'s #DailyDoodle posts from Bluesky`}</description>
-    <link>https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doosky.xyz${handle && handle !== 'ryanjoseph.dev' ? `/${escapeXml(handle)}` : ''}</link>
-    <atom:link href="https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doosky.xyz/rss.xml${handle && handle !== 'ryanjoseph.dev' ? `?handle=${escapeXml(handle)}` : ''}" rel="self" type="application/rss+xml" />
+    <link>https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doodsky.xyz${handle && handle !== 'ryanjoseph.dev' ? `/${escapeXml(handle)}` : ''}</link>
+    <atom:link href="https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doodsky.xyz/rss.xml${handle && handle !== 'ryanjoseph.dev' ? `?handle=${escapeXml(handle)}` : ''}" rel="self" type="application/rss+xml" />
     <language>en</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <generator>${isAllTheDoodles ? 'All The Doodles' : 'Daily Doodles'} RSS Generator</generator>
-    <managingEditor>hello@doosky.xyz (Ryan Joseph)</managingEditor>
-    <webMaster>hello@doosky.xyz (Ryan Joseph)</webMaster>
-${doodles.slice(0, 50).map(doodle => {
+    <managingEditor>hello@doodsky.xyz (Ryan Joseph)</managingEditor>
+    <webMaster>hello@doodsky.xyz (Ryan Joseph)</webMaster>
+${doodlesData.doodles.slice(0, 50).map(doodle => {
   const cleanText = doodle.text.replace(/#\w+/g, '').trim();
   const titlePrefix = isAllTheDoodles ? `Doodle by @${escapeXml(doodle.authorHandle)}` : 'Daily Doodle';
   return `    <item>
@@ -58,7 +58,7 @@ ${doodles.slice(0, 50).map(doodle => {
       <description><![CDATA[${cleanText ? escapeXml(cleanText) + '<br/><br/>' : ''}${doodle.imageUrls.map(url => 
         `<img src="${escapeXml(url)}" alt="Daily Doodle" />`
       ).join('<br/>')}]]></description>
-      <link>https://doosky.xyz/${handle === 'ryanjoseph.dev' ? `${escapeXml(handle)}/` : ''}post/${encodeURIComponent(getPostIdFromUri(doodle.uri))}</link>
+      <link>https://doodsky.xyz/${handle === 'ryanjoseph.dev' ? `${escapeXml(handle)}/` : ''}post/${encodeURIComponent(getPostIdFromUri(doodle.uri))}</link>
       <guid isPermaLink="false">${doodle.uri}</guid>
       <pubDate>${new Date(doodle.createdAt).toUTCString()}</pubDate>
     </item>`;

@@ -1,3 +1,16 @@
+.small {
+  font-size: 50%;
+}
+
+.lighter {
+  font-size: 75%;
+  color: var(--accent-subtle);
+}
+
+.gotoHandle {
+  color: var(--link-color);
+}
+
 .main {
   min-height: 100vh;
   padding: 4rem 2rem;
@@ -27,6 +40,10 @@
     0 4px 8px rgba(0, 0, 0, 0.3),
     0 0 30px rgba(0, 0, 0, 0.1);
   position: relative;
+}
+
+.title a {
+  color: var(--text-color);
 }
 
 .topButtons {

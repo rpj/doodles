@@ -32,7 +32,7 @@ export default function HandlePostPage({ post, handle }: PostPageProps) {
           <div className={styles.notFound}>
             <h1>Post Not Found</h1>
             <Link href={`/${handle}`} className={styles.backLink}>
-              ← Back to @{handle}'s doodles
+              ← Back to @{handle}&apos;s doodles
             </Link>
           </div>
         </main>
@@ -72,7 +72,7 @@ export default function HandlePostPage({ post, handle }: PostPageProps) {
         
         <div className={styles.container}>
           <Link href={`/${handle}`} className={styles.backLink}>
-            ← Back to @{handle}'s doodles
+            ← Back to @{handle}&apos;s doodles
           </Link>
           
           <article className={styles.post}>
@@ -121,8 +121,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { handle, id } = context.params!;
   
   try {
-    const doodles = await getDoodles(handle as string);
-    const post = doodles.find(doodle => getPostIdFromUri(doodle.uri) === decodeURIComponent(id as string));
+    const doodlesData = await getDoodles(handle as string);
+    const decodedId = decodeURIComponent(id as string);
+    const post = doodlesData.doodles.find(doodle => getPostIdFromUri(doodle.uri) === decodedId);
     
     return {
       props: {

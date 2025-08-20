@@ -1,7 +1,11 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { DoodlePost, getCustomUsers } from '../lib/redis';
+import { useRouter } from 'next/router';
+import { DoodlePost, getCustomUsers, PaginatedDoodles } from '../lib/redis';
 import DoodleCard from '../components/DoodleCard';
+import Pagination from '../components/Pagination';
 import { useTheme } from '../contexts/ThemeContext';
 import styles from '../styles/Home.module.css';
 
@@ -10,25 +14,47 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [customUsers, setCustomUsers] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const router = useRouter();
 
+  // Update current page from URL query parameter
   useEffect(() => {
-    fetchDoodles();
-    fetchCustomUsers();
-    
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchDoodles, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (router.isReady) {
+      const page = parseInt(router.query.page as string) || 1;
+      setCurrentPage(page);
+    }
+  }, [router.isReady, router.query.page]);
 
-  async function fetchDoodles() {
+  // Fetch doodles when page changes
+  useEffect(() => {
+    if (router.isReady) {
+      fetchDoodles(currentPage);
+      fetchCustomUsers();
+    }
+  }, [router.isReady, currentPage]);
+  
+  useEffect(() => {
+    if (router.isReady) {
+      // Refresh every 5 minutes (but only current page)
+      const interval = setInterval(() => fetchDoodles(currentPage), 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [router.isReady, currentPage]);
+
+  async function fetchDoodles(page: number = 1) {
     try {
-      const response = await fetch('/api/doodles');
+      setLoading(true);
+      const response = await fetch(`/api/doodles?paginate=true&page=${page}&pageSize=50`);
       if (!response.ok) {
         throw new Error('Failed to fetch doodles');
       }
-      const data = await response.json();
-      setDoodles(data);
+      const data: PaginatedDoodles = await response.json();
+      setDoodles(data.doodles);
+      setHasMore(data.hasMore);
+      setTotalPages(Math.ceil(data.totalCount / data.pageSize));
       setError(null);
     } catch (err) {
       setError('Unable to load doodles');
@@ -49,6 +75,9 @@ export default function Home() {
       console.error('Error fetching custom users:', err);
     }
   }
+
+  let dispDomain = typeof window !== 'undefined' ? window.location.host : '';
+  dispDomain = dispDomain.slice(0, 1).toUpperCase() + dispDomain.slice(1);
 
   return (
     <>
@@ -71,6 +100,7 @@ export default function Home() {
               <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.30.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
             </svg>
           </a>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a 
             href="/rss.xml"
             className={styles.rssButton}
@@ -100,11 +130,12 @@ export default function Home() {
         </div>
         
         <header className={styles.header}>
-          <h1 className={styles.title}>All The Doodles</h1>
-          <p className={styles.subtitle}>
-            All <a href="https://bsky.app/hashtag/DailyDoodle" target="_blank">#DailyDoodle</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
-            <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev's doodles</a><br/>
-            <span className={styles.smallText}>Want your own? Hit <a href="https://bsky.app/profile/ryanjoseph.dev">me</a> up.</span>
+          <h1 className={styles.title}><a href="https://doodsky.xyz">All The Doodles</a></h1>
+          <p className={styles.subtitle} suppressHydrationWarning>
+            All <span className={styles.small}>(SFW)</span> <a href="https://bsky.app/hashtag/DailyDoodle" target="_blank">#DailyDoodle</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
+            <span className={styles.lighter}>Updated every few minutes</span><br/>
+            <span className={styles.gotoHandle}>{dispDomain}/&lt;your-Bluesky-handle&gt;</span> for yours!<br/>
+            <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev&apos;s doodles</a>
           </p>
         </header>
 
@@ -123,17 +154,30 @@ export default function Home() {
         )}
 
         {!loading && !error && doodles.length > 0 && (
-          <div className={styles.grid}>
-            {doodles.map((doodle) => (
-              <DoodleCard 
-                key={doodle.uri} 
-                doodle={doodle} 
-                customUsers={customUsers}
-              />
-            ))}
-          </div>
+          <>
+            <div className={styles.grid}>
+              {doodles.map((doodle) => (
+                <DoodleCard 
+                  key={doodle.uri} 
+                  doodle={doodle} 
+                  customUsers={customUsers}
+                />
+              ))}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+            />
+          </>
         )}
       </main>
     </>
   );
+}
+
+// Force server-side rendering to avoid static generation issues with window access
+export async function getServerSideProps() {
+  return {
+    props: {}, // No props needed, just opting out of static generation
+  };
 }
