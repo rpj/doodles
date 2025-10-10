@@ -18,9 +18,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run backfill` - Import hardcoded list of existing doodle posts
 
 ### Frontend
-- `npm run dev` - Development server on port 30069
+- `npm run dev` - Development server (default port 3000, configurable via PORT)
 - `npm run build` - Production build
-- `npm run start` - Production server
+- `npm run start` - Production server (respects PORT env var)
 - `npm run lint` - ESLint
 
 ### Full Stack

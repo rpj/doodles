@@ -8,9 +8,9 @@ This is a Next.js frontend for "Daily Doodles" - a web application that displays
 
 ## Development Commands
 
-- `npm run dev` - Start development server on port 30069
+- `npm run dev` - Start development server (default port 3000, configurable via PORT env var)
 - `npm run build` - Build for production
-- `npm run start` - Start production server
+- `npm run start` - Start production server (respects PORT env var)
 - `npm run lint` - Run ESLint
 
 ## Architecture & Data Flow

@@ -20,7 +20,7 @@ export default function RssXml() {
 export const getServerSideProps: GetServerSideProps = async ({ res, query }) => {
   try {
     let handle = query.handle as string | undefined;
-    
+
     // Sanitize handle to prevent injection attacks
     if (handle) {
       // Only allow alphanumeric, dots, hyphens, and underscores in handles
@@ -30,15 +30,21 @@ export const getServerSideProps: GetServerSideProps = async ({ res, query }) => 
         return { props: {} };
       }
     }
-    
+
     const doodlesData = await getDoodles(handle);
     const isAllTheDoodles = !handle;
+
+    // Get hashtag from env var, ensure it has # prefix
+    let HASHTAG_TO_WATCH = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+    if (!HASHTAG_TO_WATCH.startsWith('#')) {
+      HASHTAG_TO_WATCH = '#' + HASHTAG_TO_WATCH;
+    }
     
     const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${isAllTheDoodles ? 'All The Doodles' : `${escapeXml(handle!)}'s Daily Doodles`}</title>
-    <description>${isAllTheDoodles ? 'All #DailyDoodle posts from Bluesky' : `@${escapeXml(handle!)}'s #DailyDoodle posts from Bluesky`}</description>
+    <description>${isAllTheDoodles ? `All ${HASHTAG_TO_WATCH} posts from Bluesky` : `@${escapeXml(handle!)}'s ${HASHTAG_TO_WATCH} posts from Bluesky`}</description>
     <link>https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doodsky.xyz${handle && handle !== 'ryanjoseph.dev' ? `/${escapeXml(handle)}` : ''}</link>
     <atom:link href="https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doodsky.xyz/rss.xml${handle && handle !== 'ryanjoseph.dev' ? `?handle=${escapeXml(handle)}` : ''}" rel="self" type="application/rss+xml" />
     <language>en</language>

@@ -8,8 +8,14 @@ import DoodleCard from '../components/DoodleCard';
 import Pagination from '../components/Pagination';
 import { useTheme } from '../contexts/ThemeContext';
 import styles from '../styles/Home.module.css';
+import Link from 'next/link';
 
-export default function Home() {
+interface HomeProps {
+  serverHashtag: string;
+  serverHashtagWithoutPrefix: string;
+}
+
+export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: HomeProps) {
   const [doodles, setDoodles] = useState<DoodlePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +23,8 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [hashtag, setHashtag] = useState(serverHashtag);
+  const [hashtagWithoutPrefix, setHashtagWithoutPrefix] = useState(serverHashtagWithoutPrefix);
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
@@ -27,6 +35,13 @@ export default function Home() {
       setCurrentPage(page);
     }
   }, [router.isReady, router.query.page]);
+
+  // Fetch configuration on mount
+  useEffect(() => {
+    if (router.isReady) {
+      fetchConfig();
+    }
+  }, [router.isReady]);
 
   // Fetch doodles when page changes
   useEffect(() => {
@@ -76,14 +91,45 @@ export default function Home() {
     }
   }
 
+  async function fetchConfig() {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        setHashtag(config.hashtag);
+        setHashtagWithoutPrefix(config.hashtagWithoutPrefix);
+      }
+    } catch (err) {
+      console.error('Error fetching config:', err);
+      // Keep default values on error
+    }
+  }
+
   let dispDomain = typeof window !== 'undefined' ? window.location.host : '';
   dispDomain = dispDomain.slice(0, 1).toUpperCase() + dispDomain.slice(1);
+  const isDoodle = hashtag.indexOf('DailyDoodle') !== -1;
+
+  function subHead() {
+    if (!isDoodle) {
+      return <></>;
+    }
+
+    return <>
+      <p className={styles.subtitle} suppressHydrationWarning>
+          All <span className={styles.small}>(SFW)</span> <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}`} target="_blank">{hashtag}</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
+          <span className={styles.lighter}>Updated every few minutes</span><br/>
+          <span className={styles.gotoHandle}>{dispDomain}/&lt;your-Bluesky-handle&gt;</span> for yours!<br/>
+          <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev&apos;s doodles</a>
+        </p>
+    </>;
+  }
+
 
   return (
     <>
       <Head>
-        <title>All The Doodles</title>
-        <meta name="description" content="All #DailyDoodles on Bluesky" />
+        <title>{isDoodle ? 'All The Doodles' : hashtag}</title>
+        <meta name="description" content={`All ${hashtag}s on Bluesky`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -130,13 +176,10 @@ export default function Home() {
         </div>
         
         <header className={styles.header}>
-          <h1 className={styles.title}><a href="https://doodsky.xyz">All The Doodles</a></h1>
-          <p className={styles.subtitle} suppressHydrationWarning>
-            All <span className={styles.small}>(SFW)</span> <a href="https://bsky.app/hashtag/DailyDoodle" target="_blank">#DailyDoodle</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
-            <span className={styles.lighter}>Updated every few minutes</span><br/>
-            <span className={styles.gotoHandle}>{dispDomain}/&lt;your-Bluesky-handle&gt;</span> for yours!<br/>
-            <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev&apos;s doodles</a>
-          </p>
+          <h1 className={styles.title}>
+            <Link href="/">{isDoodle ? 'All The Doodles' : hashtag}</Link>
+          </h1>
+          {subHead()}
         </header>
 
         {loading && (
@@ -149,7 +192,7 @@ export default function Home() {
 
         {!loading && !error && doodles.length === 0 && (
           <div className={styles.empty}>
-            No doodles found yet. Post with #DailyDoodle on Bluesky!
+            No doodles found yet. Post with {hashtag} on Bluesky!
           </div>
         )}
 
@@ -177,7 +220,17 @@ export default function Home() {
 
 // Force server-side rendering to avoid static generation issues with window access
 export async function getServerSideProps() {
+  // Get hashtag from env var, ensure it has # prefix
+  let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+  if (!hashtag.startsWith('#')) {
+    hashtag = '#' + hashtag;
+  }
+  const hashtagWithoutPrefix = hashtag.substring(1);
+
   return {
-    props: {}, // No props needed, just opting out of static generation
+    props: {
+      serverHashtag: hashtag,
+      serverHashtagWithoutPrefix: hashtagWithoutPrefix,
+    },
   };
 }

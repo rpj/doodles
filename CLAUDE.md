@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Daily Doodles is a full-stack application that collects and displays art posts from Bluesky tagged with #DailyDoodle. The system consists of a Node.js listener service that monitors Bluesky, a Next.js frontend for display, and Redis for data storage, all orchestrated with Docker Compose.
+Daily Doodles is a full-stack application that collects and displays art posts from Bluesky tagged with a configurable hashtag (defaults to #DailyDoodle). The system consists of a Node.js listener service that monitors Bluesky, a Next.js frontend for display, and Redis for data storage, all orchestrated with Docker Compose.
 
 ## Development Commands
 
@@ -26,9 +26,9 @@ npm run backfill       # Import existing doodle posts (run once)
 
 ### Frontend (./frontend/)
 ```bash
-npm run dev           # Development server on port 30069
-npm run build         # Production build  
-npm run start         # Production server
+npm run dev           # Development server (default port 3000, configurable via PORT env var)
+npm run build         # Production build
+npm run start         # Production server (respects PORT env var)
 npm run lint          # ESLint
 ```
 
@@ -40,8 +40,8 @@ npm run lint          # ESLint
 ## Architecture
 
 ### Service Architecture
-- **Listener**: Unified service that polls Bluesky every ~5 minutes for #DailyDoodle posts and fans them out to multiple Redis prefixes based on configurable filters. Supports handle-based filtering via shared configuration.
-- **Frontend**: Next.js app with path-based routing: `/` shows all doodles, `/[handle]` shows user-specific doodles. Server-side rendering with auto-refresh gallery.
+- **Listener**: Unified service that polls Bluesky every ~5 minutes for posts with the configured hashtag and fans them out to multiple Redis prefixes based on configurable filters. Supports handle-based filtering via shared configuration.
+- **Frontend**: Next.js app with path-based routing: `/` shows all doodles, `/[handle]` shows user-specific doodles. Server-side rendering with auto-refresh gallery. Dynamically displays the configured hashtag.
 - **Redis**: Stores processed posts using configurable prefixes (`all-doodles:*` for all posts, `doodles:*` for ryanjoseph.dev, `doodles-kaciecamilli:*` for kaciecamilli.bsky.social)
 
 ### Key Data Structure
@@ -71,17 +71,22 @@ Art Deco-inspired black/white design with metallic silver accents. Uses CSS cust
 
 ## Environment Variables
 - `BLUESKY_IDENT` - Bluesky username/handle (required)
-- `BLUESKY_PASS` - Bluesky app password (required)  
+- `BLUESKY_PASS` - Bluesky app password (required)
 - `REDIS_URL` - Redis connection string (defaults to redis://localhost:6379)
 - `DOODLE_POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
+- `HASHTAG_TO_WATCH` - The hashtag to monitor (default: #DailyDoodle). Include the # prefix.
+- `PORT` - Frontend server port (default: 3000)
 
 ### Filter Configuration
 The listener supports multiple filter modes simultaneously:
-- **All Doodles** (`all-doodles:*` prefix): Collects all #DailyDoodle posts, filters NSFW content
-- **Personal Posts** (`doodles:*` prefix): Only ryanjoseph.dev posts  
+- **All Doodles** (`all-doodles:*` prefix): Collects all posts with the configured hashtag, filters NSFW content
+- **Personal Posts** (`doodles:*` prefix): Only ryanjoseph.dev posts
 - **Specific Users**: Additional users configured in `shared/config.js`
 
 Filter mappings are centrally managed in `shared/config.js` to avoid duplication between frontend and listener.
+
+### Hashtag Configuration
+The hashtag to watch is configured via the `HASHTAG_TO_WATCH` environment variable, managed through `shared/config.js`. This allows the application to monitor any hashtag on Bluesky. The frontend fetches the configuration via the `/api/config` endpoint to dynamically display the correct hashtag throughout the interface.
 
 ## Docker Configuration
 Uses `network_mode: 'host'` for both services. Services auto-restart unless manually stopped. Environment variables sourced from host `.env` file.

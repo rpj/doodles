@@ -1,20 +1,20 @@
 # Daily Doodles
 
-A full-stack application that collects and displays art posts from Bluesky tagged with #DailyDoodle. Features real-time monitoring, multi-user support, RSS feeds, and an Art Deco-inspired gallery interface.
+A full-stack application that collects and displays art posts from Bluesky tagged with a configurable hashtag (defaults to #DailyDoodle). Features real-time monitoring, multi-user support, RSS feeds, and an Art Deco-inspired gallery interface.
 
 ## Architecture
 
 ### Core Components
-- **Listener Service** (Node.js/TypeScript) - Monitors Bluesky every ~5 minutes for #DailyDoodle posts
-- **Frontend** (Next.js/React) - Gallery web interface with server-side rendering and auto-refresh
+- **Listener Service** (Node.js/TypeScript) - Monitors Bluesky every ~5 minutes for posts with the configured hashtag
+- **Frontend** (Next.js/React) - Gallery web interface with server-side rendering, auto-refresh, and dynamic hashtag display
 - **Redis** - Data storage for posts, session management, and runtime configuration
 - **Docker Compose** - Service orchestration and deployment
 
 ### Data Flow
-1. Listener polls Bluesky search API for #DailyDoodle posts
+1. Listener polls Bluesky search API for posts with the configured hashtag
 2. Posts with images are processed and stored in Redis with multiple prefixes
 3. Frontend serves galleries filtered by user handle via dynamic routing
-4. RSS feeds generated server-side with handle-specific filtering
+4. RSS feeds generated server-side with handle-specific filtering and configured hashtag
 
 ## Quick Start
 
@@ -54,7 +54,7 @@ A full-stack application that collects and displays art posts from Bluesky tagge
    ```
 
 5. **Access Application**
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:3000 (or your configured PORT)
    - RSS Feed: http://localhost:3000/rss.xml
 
 ## Development
@@ -62,9 +62,9 @@ A full-stack application that collects and displays art posts from Bluesky tagge
 ### Frontend (./frontend/)
 ```bash
 npm install           # Install dependencies
-npm run dev           # Development server on port 30069
+npm run dev           # Development server (default port 3000, configurable via PORT)
 npm run build         # Production build
-npm run start         # Production server
+npm run start         # Production server (respects PORT env var)
 npm run lint          # ESLint
 ```
 
@@ -98,6 +98,8 @@ npx ts-node moderation.ts <postId> --delete
 **Optional:**
 - `REDIS_URL` - Redis connection string (default: `redis://localhost:6379`)
 - `DOODLE_POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
+- `HASHTAG_TO_WATCH` - Hashtag to monitor (default: `#DailyDoodle`). Include the # prefix.
+- `PORT` - Frontend server port (default: 3000)
 
 ### User Filter Management
 
@@ -145,7 +147,7 @@ This enables individual image routing and display.
 ### Redis Structure
 
 **Prefixes:**
-- `all-doodles:*` - All #DailyDoodle posts (filters NSFW content)
+- `all-doodles:*` - All posts with the configured hashtag (filters NSFW content)
 - `doodles:*` - Posts from ryanjoseph.dev
 - `doodles-kaciecamilli:*` - Posts from kaciecamilli.bsky.social
 - `user-[handle]:*` - Posts from unconfigured users (fallback)
@@ -184,7 +186,7 @@ This enables individual image routing and display.
 ## Listener Features
 
 ### Post Processing
-- **Hashtag Detection**: Searches for #DailyDoodle in post text
+- **Hashtag Detection**: Searches for the configured hashtag in post text (defaults to #DailyDoodle)
 - **Image Extraction**: Supports multiple Bluesky embed types
 - **NSFW Filtering**: Skips posts with #nsfw, #noindex tags or sexual content labels
 - **Multi-User Fanout**: Single post search fans out to multiple Redis prefixes
@@ -286,13 +288,40 @@ redis-cli HGETALL __doodles:users
 ### Automatic Filtering
 - Posts without images are skipped
 - NSFW content filtered via hashtags (#nsfw, #noindex) and Bluesky labels
-- Only posts containing #DailyDoodle are processed
+- Only posts containing the configured hashtag are processed
 
 ### Multi-User Support
 The system simultaneously tracks:
-- **All Users**: Every #DailyDoodle post (stored in `all-doodles:*`)
+- **All Users**: Every post with the configured hashtag (stored in `all-doodles:*`)
 - **Specific Users**: Individual user feeds (configured via `__doodles:users`)
 - **Fallback**: Unconfigured users default to `user-[handle]:*` prefix
+
+### Hashtag Configuration
+The hashtag to monitor is configured via the `HASHTAG_TO_WATCH` environment variable (defaults to `#DailyDoodle`). This allows you to track any hashtag on Bluesky:
+
+```bash
+# Watch a different hashtag
+HASHTAG_TO_WATCH="#ArtDaily" docker-compose up -d
+
+# Or add to your .env file
+echo "HASHTAG_TO_WATCH=#WeeklySketch" >> .env
+```
+
+The frontend automatically fetches and displays the configured hashtag throughout the interface via the `/api/config` endpoint.
+
+### Port Configuration
+The frontend port is configurable via the `PORT` environment variable (defaults to 3000):
+
+```bash
+# Use a different port
+PORT=8080 docker-compose up -d
+
+# Or add to your .env file
+echo "PORT=8080" >> .env
+
+# Run development server on custom port
+PORT=8080 npm run dev
+```
 
 ## Troubleshooting
 

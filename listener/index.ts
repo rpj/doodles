@@ -8,9 +8,13 @@ const START_TS = Date.now();
 
 const POLLING_FREQ_SECONDS = Number.parseInt(process.env.DOODLE_POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
 
-// Removed getFilterConfig - no longer needed with unified storage
+// Get hashtag from env var, ensure it has # prefix
+let HASHTAG_TO_WATCH = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+if (!HASHTAG_TO_WATCH.startsWith('#')) {
+  HASHTAG_TO_WATCH = '#' + HASHTAG_TO_WATCH;
+}
 
-const HASHTAG_TO_WATCH = '#DailyDoodle';
+// Removed getFilterConfig - no longer needed with unified storage
 const SEARCH_BATCH_SIZE = 100;
 const maxBatches = 20; // Safety limit to prevent infinite loops
 

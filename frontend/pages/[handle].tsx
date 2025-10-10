@@ -11,15 +11,19 @@ import styles from '../styles/Home.module.css';
 
 interface HandlePageProps {
   handle: string;
+  serverHashtag: string;
+  serverHashtagWithoutPrefix: string;
 }
 
-export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
+export default function HandlePage({ handle: serverHandle, serverHashtag, serverHashtagWithoutPrefix }: HandlePageProps) {
   const [doodles, setDoodles] = useState<DoodlePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [hashtag, setHashtag] = useState(serverHashtag);
+  const [hashtagWithoutPrefix, setHashtagWithoutPrefix] = useState(serverHashtagWithoutPrefix);
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const { handle } = router.query;
@@ -33,10 +37,17 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
     }
   }, [router.isReady, router.query.page]);
 
+  // Fetch configuration on mount
+  useEffect(() => {
+    if (router.isReady) {
+      fetchConfig();
+    }
+  }, [router.isReady]);
+
   // Fetch doodles when page or handle changes
   useEffect(() => {
     if (!handle || !router.isReady) return;
-    
+
     fetchDoodles(currentPage);
   }, [handle, currentPage, router.isReady]);
   
@@ -50,7 +61,7 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
 
   async function fetchDoodles(page: number = 1) {
     if (!handle) return;
-    
+
     try {
       setLoading(true);
       const response = await fetch(`/api/doodles?handle=${handle}&paginate=true&page=${page}&pageSize=50`);
@@ -70,6 +81,20 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
     }
   }
 
+  async function fetchConfig() {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        setHashtag(config.hashtag);
+        setHashtagWithoutPrefix(config.hashtagWithoutPrefix);
+      }
+    } catch (err) {
+      console.error('Error fetching config:', err);
+      // Keep default values on error
+    }
+  }
+
   const isRyan = handleStr === 'ryanjoseph.dev';
   const handleShort = handleStr?.replace('.bsky.social', '') ?? '';
 
@@ -77,7 +102,7 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
     <>
       <Head>
         <title>{isRyan ? 'Daily Doodles' : (handleStr ? `${handleShort}'s Daily Doodles` : 'Daily Doodles')}</title>
-        <meta name="description" content={isRyan ? "@ryanjoseph.dev's collection of daily doodles from Bluesky" : handleStr ? `${handleShort}'s #DailyDoodle posts from Bluesky` : 'Daily doodles from Bluesky'} />
+        <meta name="description" content={isRyan ? "@ryanjoseph.dev's collection of daily doodles from Bluesky" : handleStr ? `${handleShort}'s ${hashtag} posts from Bluesky` : 'Daily doodles from Bluesky'} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -135,12 +160,12 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
             {isRyan ? (
               <>
                 <a href="https://ryanjoseph.dev" target="_blank">I've</a> been trying to draw a "doodle a day" both as a respite and to improve my skills.<br/><br/>
-                If they're not awful, I'll <a href="https://bsky.app/hashtag/DailyDoodle?author=ryanjoseph.dev" target="_blank">post them</a> and they'll automatically end up here.
+                If they're not awful, I'll <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}?author=ryanjoseph.dev`} target="_blank">post them</a> and they'll automatically end up here.
               </>
             ) : (
               <>
-                <a href={`https://bsky.app/profile/${handleStr}`} target="_blank">@{handleStr}</a>'s&nbsp; 
-                <a href={`https://bsky.app/hashtag/dailydoodle?author=${handleStr}`} target="_blank">#DailyDoodle</a>s
+                <a href={`https://bsky.app/profile/${handleStr}`} target="_blank">@{handleStr}</a>'s&nbsp;
+                <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix.toLowerCase()}?author=${handleStr}`} target="_blank">{hashtag}</a>s
               </>
             )}
           </p>
@@ -156,7 +181,7 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
 
         {!loading && !error && doodles.length === 0 && (
           <div className={styles.empty}>
-            No doodles found yet from @{handleStr}. Post with #DailyDoodle on Bluesky!
+            No doodles found yet from @{handleStr}. Post with {hashtag} on Bluesky!
           </div>
         )}
 
@@ -189,10 +214,19 @@ export default function HandlePage({ handle: serverHandle }: HandlePageProps) {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { handle } = context.params!;
-  
+
+  // Get hashtag from env var, ensure it has # prefix
+  let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+  if (!hashtag.startsWith('#')) {
+    hashtag = '#' + hashtag;
+  }
+  const hashtagWithoutPrefix = hashtag.substring(1);
+
   return {
     props: {
       handle: handle as string,
+      serverHashtag: hashtag,
+      serverHashtagWithoutPrefix: hashtagWithoutPrefix,
     },
   };
 };
