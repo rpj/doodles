@@ -164,6 +164,7 @@
 
 .text {
   font-size: 1.2rem;
+  text-align: center;
   line-height: 1.6;
   margin-bottom: 2rem;
   white-space: pre-wrap;
