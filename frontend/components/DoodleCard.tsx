@@ -11,9 +11,10 @@ interface DoodleCardProps {
   isHero?: boolean;
   userHandle?: string; // The handle context for routing (undefined for main page)
   customUsers?: string[]; // List of custom users for routing decisions on main page
+  isHashtagDoodle?: boolean; // Whether this post is part of the "doodle" hashtag feed or a custom one
 }
 
-export default function DoodleCard({ doodle, isHero = false, userHandle, customUsers = [] }: DoodleCardProps) {
+export default function DoodleCard({ doodle, isHero = false, userHandle, customUsers = [], isHashtagDoodle = false }: DoodleCardProps) {
   const postId = getPostIdFromUri(doodle.uri);
   const isMainPage = !userHandle; // If no userHandle context, we're on the main page
   
@@ -29,6 +30,20 @@ export default function DoodleCard({ doodle, isHero = false, userHandle, customU
   } else {
     // Main page: /post/[id] with ref back to main
     postLink = `/post/${encodeURIComponent(postId)}?ref=${encodeURIComponent('/')}`;
+  }
+
+  function mainpageCardHeader() {
+    if (!isHashtagDoodle) {
+      return <></>;
+    }
+
+    return <>
+        <div className={styles.author}>
+          <a href={doodle.postUrl} target="_blank" rel="noopener noreferrer">
+            @{doodle.authorHandle}
+          </a>
+        </div>
+      </>;
   }
   
   return (
@@ -53,7 +68,7 @@ export default function DoodleCard({ doodle, isHero = false, userHandle, customU
               ) : (
                 <Image
                   src={url}
-                  alt={`Doodle by @${doodle.authorHandle}`}
+                  alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
                   width={400}
                   height={400}
                   className={styles.image}
@@ -68,14 +83,10 @@ export default function DoodleCard({ doodle, isHero = false, userHandle, customU
       <div className={styles.content}>
         {isMainPage && (
           <>
-            <div className={styles.author}>
-              <a href={doodle.postUrl} target="_blank" rel="noopener noreferrer">
-                @{doodle.authorHandle}
-              </a>
-            </div>
+            {mainpageCardHeader()}
             {doodle.text && (
               <div className={styles.text}>
-                {doodle.text}
+                {doodle.text.replaceAll('\n', ' / ')}
               </div>
             )}
           </>

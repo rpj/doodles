@@ -107,10 +107,10 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
 
   let dispDomain = typeof window !== 'undefined' ? window.location.host : '';
   dispDomain = dispDomain.slice(0, 1).toUpperCase() + dispDomain.slice(1);
-  const isDoodle = hashtag.indexOf('DailyDoodle') !== -1;
+  const isHashtagDoodle = hashtag.indexOf('DailyDoodle') !== -1;
 
   function subHead() {
-    if (!isDoodle) {
+    if (!isHashtagDoodle) {
       return <></>;
     }
 
@@ -128,7 +128,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
   return (
     <>
       <Head>
-        <title>{isDoodle ? 'All The Doodles' : hashtag}</title>
+        <title>{isHashtagDoodle ? 'All The Doodles' : hashtag}</title>
         <meta name="description" content={`All ${hashtag}s on Bluesky`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -177,7 +177,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
         
         <header className={styles.header}>
           <h1 className={styles.title}>
-            <Link href="/">{isDoodle ? 'All The Doodles' : hashtag}</Link>
+            <Link href="/">{isHashtagDoodle ? 'All The Doodles' : hashtag}</Link>
           </h1>
           {subHead()}
         </header>
@@ -204,6 +204,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
                   key={doodle.uri} 
                   doodle={doodle} 
                   customUsers={customUsers}
+                  isHashtagDoodle={isHashtagDoodle}
                 />
               ))}
             </div>

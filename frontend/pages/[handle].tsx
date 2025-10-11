@@ -28,6 +28,7 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
   const router = useRouter();
   const { handle } = router.query;
   const handleStr = serverHandle || (Array.isArray(handle) ? handle[0] : handle);
+  const isHashtagDoodle = hashtag.indexOf('DailyDoodle') !== -1;
 
   // Update current page from URL query parameter
   useEffect(() => {
@@ -113,7 +114,7 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
             className={styles.backButton}
             aria-label="Back to All The Doodles"
           >
-            ← All Doodles
+            ← All {isHashtagDoodle ? 'Doodles' : 'Posts'}
           </Link>
           <a 
             href="https://github.com/rpj/doodles"

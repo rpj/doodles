@@ -12,11 +12,14 @@ import styles from '../../../styles/Post.module.css';
 interface PostPageProps {
   post: DoodlePost | null;
   handle: string;
+  hashtagWithoutPrefix: string;
 }
 
-export default function HandlePostPage({ post, handle }: PostPageProps) {
+export default function HandlePostPage({ post, handle, hashtagWithoutPrefix }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const isHashtagDoodle = hashtagWithoutPrefix?.indexOf('DailyDoodle') !== -1;
+  const postTypeStr = isHashtagDoodle ? 'doodle' : 'post';
 
   useEffect(() => {
     setMounted(true);
@@ -32,7 +35,7 @@ export default function HandlePostPage({ post, handle }: PostPageProps) {
           <div className={styles.notFound}>
             <h1>Post Not Found</h1>
             <Link href={`/${handle}`} className={styles.backLink}>
-              ← Back to @{handle}&apos;s doodles
+              ← Back to @{handle}&apos;s ${postTypeStr}s
             </Link>
           </div>
         </main>
@@ -46,8 +49,8 @@ export default function HandlePostPage({ post, handle }: PostPageProps) {
   return (
     <>
       <Head>
-        <title>{`${isRyan ? 'Daily Doodle' : `@${handle}'s Doodle`} - ${format(new Date(post.createdAt), 'MMM d, yyyy')}`}</title>
-        <meta name="description" content={`A daily doodle from ${post.authorDisplayName}`} />
+        <title>{`${format(new Date(post.createdAt), 'MMM d, yyyy')}`}</title>
+        <meta name="description" content={`A daily ${isHashtagDoodle ? 'doodle' : `#${hashtagWithoutPrefix} post`} from ${post.authorDisplayName}`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -72,7 +75,7 @@ export default function HandlePostPage({ post, handle }: PostPageProps) {
         
         <div className={styles.container}>
           <Link href={`/${handle}`} className={styles.backLink}>
-            ← Back to @{handle}&apos;s doodles
+            ← Back to @{handle}&apos;s {postTypeStr}s
           </Link>
           
           <article className={styles.post}>
@@ -119,6 +122,13 @@ export default function HandlePostPage({ post, handle }: PostPageProps) {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { handle, id } = context.params!;
+
+  // Get hashtag from env var, ensure it has # prefix
+  let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+  if (!hashtag.startsWith('#')) {
+    hashtag = '#' + hashtag;
+  }
+  const hashtagWithoutPrefix = hashtag.substring(1);
   
   try {
     const doodlesData = await getDoodles(handle as string);
@@ -129,6 +139,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       props: {
         post: post || null,
         handle: handle as string,
+        hashtagWithoutPrefix,
       },
     };
   } catch (error) {
@@ -137,6 +148,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       props: {
         post: null,
         handle: handle as string,
+        hashtagWithoutPrefix: null,
       },
     };
   }
