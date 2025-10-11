@@ -149,3 +149,66 @@ export async function getAllDoodles(handle?: string): Promise<DoodlePost[]> {
   const result = await getDoodles(handle, 1, -1);
   return result.doodles;
 }
+
+// Fetch a single post by post ID, optionally filtered by handle
+export async function getPostById(postId: string, handle?: string): Promise<DoodlePost | null> {
+  const client = getRedisClient();
+
+  // Sanitize handle if provided
+  if (handle && !/^[a-zA-Z0-9._-]+$/.test(handle)) {
+    throw new Error('Invalid handle format');
+  }
+
+  try {
+    let did: string | null = null;
+
+    if (handle) {
+      // Get the handle's post list to extract the DID
+      const handleKey = `handle:${handle}:posts`;
+      const firstUri = await client.lindex(handleKey, 0);
+
+      if (!firstUri || !firstUri.startsWith('at://')) {
+        return null;
+      }
+
+      // Extract DID from the first URI: at://did:plc:xxx/app.bsky.feed.post/...
+      const didMatch = firstUri.match(/at:\/\/(did:[^\/]+)\//);
+      if (!didMatch) {
+        return null;
+      }
+      did = didMatch[1];
+    } else {
+      // No handle provided - search through all-doodles:posts for matching post ID
+      const totalCount = await client.llen('all-doodles:posts');
+      const rawDoodles = await client.lrange('all-doodles:posts', 0, totalCount - 1);
+
+      for (const raw of rawDoodles) {
+        try {
+          const doodle = JSON.parse(raw) as DoodlePost;
+          // Extract post ID from URI and compare
+          const match = doodle.uri.match(/\/app\.bsky\.feed\.post\/(.+)/);
+          if (match && match[1] === postId) {
+            return doodle;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      return null;
+    }
+
+    // Construct the full URI for the target post
+    const targetUri = `at://${did}/app.bsky.feed.post/${postId}`;
+
+    // Try to fetch the post directly
+    const postData = await client.get(`post:${targetUri}`);
+    if (postData) {
+      return JSON.parse(postData) as DoodlePost;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching post by ID:', error);
+    return null;
+  }
+}

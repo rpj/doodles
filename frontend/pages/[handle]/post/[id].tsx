@@ -4,8 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getDoodles, DoodlePost } from '../../../lib/redis';
-import { getPostIdFromUri } from '../../../lib/utils';
+import { getPostById, DoodlePost } from '../../../lib/redis';
 import { useTheme } from '../../../contexts/ThemeContext';
 import styles from '../../../styles/Post.module.css';
 
@@ -129,12 +128,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     hashtag = '#' + hashtag;
   }
   const hashtagWithoutPrefix = hashtag.substring(1);
-  
+
   try {
-    const doodlesData = await getDoodles(handle as string);
+    // Decode the ID (e.g., "3m2uyrrsec22m%23image0" -> "3m2uyrrsec22m#image0")
     const decodedId = decodeURIComponent(id as string);
-    const post = doodlesData.doodles.find(doodle => getPostIdFromUri(doodle.uri) === decodedId);
-    
+
+    // Fetch the post directly by ID with handle filter
+    const post = await getPostById(decodedId, handle as string);
+
     return {
       props: {
         post: post || null,
