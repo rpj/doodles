@@ -9,6 +9,7 @@ services:
       - BLUESKY_PASS=${BLUESKY_PASS}
       - DOODLE_POLLING_FREQ_SECONDS=${DOODLE_POLLING_FREQ_SECONDS:-300}
       - HASHTAG_TO_WATCH=${HASHTAG_TO_WATCH}
+      - HANDLES_TO_WATCH=${HANDLES_TO_WATCH}
     restart: unless-stopped
 
   # Unified frontend with path-based routing
@@ -19,5 +20,6 @@ services:
       - REDIS_URL=${REDIS_URL}
       - PORT=${PORT:-3000}
       - HASHTAG_TO_WATCH=${HASHTAG_TO_WATCH}
+      - HANDLES_TO_WATCH=${HANDLES_TO_WATCH}
     restart: unless-stopped
 

@@ -14,6 +14,11 @@ if (!HASHTAG_TO_WATCH.startsWith('#')) {
   HASHTAG_TO_WATCH = '#' + HASHTAG_TO_WATCH;
 }
 
+// Parse handles to watch (comma-separated list)
+const HANDLES_TO_WATCH = process.env.HANDLES_TO_WATCH
+  ? process.env.HANDLES_TO_WATCH.split(',').map(h => h.trim().toLowerCase()).filter(h => h.length > 0)
+  : null;
+
 // Removed getFilterConfig - no longer needed with unified storage
 const SEARCH_BATCH_SIZE = 100;
 const maxBatches = 20; // Safety limit to prevent infinite loops
@@ -197,7 +202,15 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
       if (!hasHashtag(postText, HASHTAG_TO_WATCH)) {
         continue;
       }
-      
+
+      // Filter by handle if HANDLES_TO_WATCH is set
+      if (HANDLES_TO_WATCH && HANDLES_TO_WATCH.length > 0) {
+        const postHandle = post.author.handle.toLowerCase();
+        if (!HANDLES_TO_WATCH.includes(postHandle)) {
+          continue;
+        }
+      }
+
       // Extract images
       const imageUrls = extractImagesFromPost(post);
       
@@ -322,6 +335,12 @@ async function main() {
   });
 
   console.log('Starting unified listener (all posts stored in all-doodles:*)');
+  console.log(`Watching hashtag: ${HASHTAG_TO_WATCH}`);
+  if (HANDLES_TO_WATCH && HANDLES_TO_WATCH.length > 0) {
+    console.log(`Filtering by handles: ${HANDLES_TO_WATCH.join(', ')}`);
+  } else {
+    console.log('Watching ALL handles');
+  }
   console.log('');
 
   try {
