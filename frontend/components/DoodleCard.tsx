@@ -12,9 +12,17 @@ interface DoodleCardProps {
   userHandle?: string; // The handle context for routing (undefined for main page)
   customUsers?: string[]; // List of custom users for routing decisions on main page
   isHashtagDoodle?: boolean; // Whether this post is part of the "doodle" hashtag feed or a custom one
+  serverHashtag: string; // The server-configured hashtag (with # prefix)
 }
 
-export default function DoodleCard({ doodle, isHero = false, userHandle, customUsers = [], isHashtagDoodle = false }: DoodleCardProps) {
+export default function DoodleCard({
+  doodle, 
+  isHero = false, 
+  userHandle, 
+  customUsers = [], 
+  isHashtagDoodle = false,
+  serverHashtag,
+}: DoodleCardProps) {
   const postId = getPostIdFromUri(doodle.uri);
   const isMainPage = !userHandle; // If no userHandle context, we're on the main page
   const basePostId = postId.split('#')[0]; // Base ID without #imageN suffix
@@ -112,7 +120,7 @@ export default function DoodleCard({ doodle, isHero = false, userHandle, customU
               {mainpageCardHeader()}
               {doodle.text && (
                 <div className={styles.text}>
-                  {doodle.text.replaceAll('\n', ' / ')}
+                  {doodle.text.replaceAll('\n', ' / ').replaceAll(new RegExp(`\\s*${serverHashtag}`, 'g'), '').trim()}
                 </div>
               )}
             </>

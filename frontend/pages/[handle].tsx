@@ -211,14 +211,14 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
           <>
             {doodles.length > 0 && currentPage === 1 && (
               <div className={styles.heroSection}>
-                <DoodleCard key={doodles[0].uri} doodle={doodles[0]} isHero={true} userHandle={handleStr} />
+                <DoodleCard key={doodles[0].uri} doodle={doodles[0]} isHero={true} userHandle={handleStr} serverHashtag={serverHashtag} />
               </div>
             )}
             
             {(currentPage === 1 ? doodles.slice(1) : doodles).length > 0 && (
               <div className={styles.grid}>
                 {(currentPage === 1 ? doodles.slice(1) : doodles).map((doodle) => (
-                  <DoodleCard key={doodle.uri} doodle={doodle} userHandle={handleStr} />
+                  <DoodleCard key={doodle.uri} doodle={doodle} userHandle={handleStr} serverHashtag={serverHashtag} />
                 ))}
               </div>
             )}

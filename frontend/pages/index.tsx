@@ -209,6 +209,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
                   doodle={doodle} 
                   customUsers={customUsers}
                   isHashtagDoodle={isHashtagDoodle}
+                  serverHashtag={serverHashtag}
                 />
               ))}
             </div>
