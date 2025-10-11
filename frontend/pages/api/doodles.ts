@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDoodles, DoodlePost, PaginatedDoodles } from '../../lib/redis';
 import { rateLimit, cors, validateHandle, runMiddleware } from '../../lib/api-middleware';
+import { groupPostsByBaseUri } from '../../lib/utils';
 
 // Configure rate limiting: 100 requests per minute
 const rateLimiter = rateLimit({
@@ -36,18 +37,21 @@ export default async function handler(
     // Validate and sanitize the handle parameter
     const rawHandle = req.query.handle as string | undefined;
     const handle = validateHandle(rawHandle);
-    
+
     // Parse pagination parameters
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = parseInt(req.query.pageSize as string) || 50;
     const paginate = req.query.paginate === 'true';
-    
+
+    // Check if grouping should be applied (when HANDLES_TO_WATCH is set)
+    const shouldGroup = !!(process.env.HANDLES_TO_WATCH && process.env.HANDLES_TO_WATCH.trim().length > 0);
+
     if (paginate) {
-      const result = await getDoodles(handle || undefined, page, pageSize);
+      const result = await getDoodles(handle || undefined, page, pageSize, shouldGroup);
       res.status(200).json(result);
     } else {
       // Backward compatibility - return all doodles as array
-      const result = await getDoodles(handle || undefined, 1, -1);
+      const result = await getDoodles(handle || undefined, 1, -1, shouldGroup);
       res.status(200).json(result.doodles);
     }
   } catch (error) {

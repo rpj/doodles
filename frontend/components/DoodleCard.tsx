@@ -17,20 +17,38 @@ interface DoodleCardProps {
 export default function DoodleCard({ doodle, isHero = false, userHandle, customUsers = [], isHashtagDoodle = false }: DoodleCardProps) {
   const postId = getPostIdFromUri(doodle.uri);
   const isMainPage = !userHandle; // If no userHandle context, we're on the main page
-  
-  // Generate the appropriate post link based on context
-  let postLink: string;
-  
-  if (userHandle) {
-    // User page: /[handle]/post/[id]
-    postLink = `/${userHandle}/post/${encodeURIComponent(postId)}`;
-  } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
-    // Main page but author is a custom user: route to their user page
-    postLink = `/${doodle.authorHandle}/post/${encodeURIComponent(postId)}`;
-  } else {
-    // Main page: /post/[id] with ref back to main
-    postLink = `/post/${encodeURIComponent(postId)}?ref=${encodeURIComponent('/')}`;
-  }
+  const basePostId = postId.split('#')[0]; // Base ID without #imageN suffix
+
+  // Generate the full post link (all images, no #imageN)
+  const getFullPostLink = (): string => {
+    if (userHandle) {
+      // User page: /[handle]/post/[id]
+      return `/${userHandle}/post/${encodeURIComponent(basePostId)}`;
+    } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
+      // Main page but author is a custom user: route to their user page
+      return `/${doodle.authorHandle}/post/${encodeURIComponent(basePostId)}`;
+    } else {
+      // Main page: /post/[id] with ref back to main
+      return `/post/${encodeURIComponent(basePostId)}?ref=${encodeURIComponent('/')}`;
+    }
+  };
+
+  // Generate the appropriate post link for a given image index
+  const getImageLink = (imageIndex: number): string => {
+    // Construct the full post ID with image index
+    const fullPostId = `${basePostId}#image${imageIndex}`;
+
+    if (userHandle) {
+      // User page: /[handle]/post/[id]
+      return `/${userHandle}/post/${encodeURIComponent(fullPostId)}`;
+    } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
+      // Main page but author is a custom user: route to their user page
+      return `/${doodle.authorHandle}/post/${encodeURIComponent(fullPostId)}`;
+    } else {
+      // Main page: /post/[id] with ref back to main
+      return `/post/${encodeURIComponent(fullPostId)}?ref=${encodeURIComponent('/')}`;
+    }
+  };
 
   function mainpageCardHeader() {
     if (!isHashtagDoodle) {
@@ -46,55 +64,64 @@ export default function DoodleCard({ doodle, isHero = false, userHandle, customU
       </>;
   }
   
+  const hasMultipleImages = doodle.imageUrls.length > 1;
+
   return (
-    <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
-      <Link href={postLink} className={styles.imageLink}>
-        <div className={`${styles.imageContainer} ${isHero ? styles.heroImageContainer : ''}`}>
+    <Link href={getFullPostLink()} className={styles.cardLink}>
+      <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
+        <div className={`${styles.imageContainer} ${isHero ? styles.heroImageContainer : ''} ${hasMultipleImages ? styles.multiImageContainer : ''}`}>
           {doodle.imageUrls.map((url, index) => (
-            <div key={index} className={styles.imageWrapper}>
-              {isHero ? (
-                <Image
-                  src={url}
-                  alt={`Doodle by @${doodle.authorHandle}`}
-                  width={700}
-                  height={0}
-                  style={{
-                    width: '100%',
-                    height: 'auto',
-                  }}
-                  className={styles.image}
-                  loading="lazy"
-                />
-              ) : (
-                <Image
-                  src={url}
-                  alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
-                  width={400}
-                  height={400}
-                  className={styles.image}
-                  loading="lazy"
-                />
-              )}
-            </div>
+            <Link
+              key={index}
+              href={getImageLink(index)}
+              className={styles.imageLink}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={`${styles.imageWrapper} ${hasMultipleImages ? styles.multiImageWrapper : ''}`}>
+                {isHero ? (
+                  <Image
+                    src={url}
+                    alt={`Doodle by @${doodle.authorHandle}`}
+                    width={700}
+                    height={0}
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                    }}
+                    className={styles.image}
+                    loading="lazy"
+                  />
+                ) : (
+                  <Image
+                    src={url}
+                    alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
+                    width={400}
+                    height={400}
+                    className={styles.image}
+                    loading="lazy"
+                  />
+                )}
+              </div>
+            </Link>
           ))}
         </div>
-      </Link>
-      
-      <div className={styles.content}>
-        {isMainPage && (
-          <>
-            {mainpageCardHeader()}
-            {doodle.text && (
-              <div className={styles.text}>
-                {doodle.text.replaceAll('\n', ' / ')}
-              </div>
-            )}
-          </>
-        )}
-        <time className={styles.date}>
-          {format(new Date(doodle.createdAt), 'MMM d, yyyy')}
-        </time>
+
+        <div className={styles.content}>
+          {isMainPage && (
+            <>
+              {mainpageCardHeader()}
+              {doodle.text && (
+                <div className={styles.text}>
+                  {doodle.text.replaceAll('\n', ' / ')}
+                </div>
+              )}
+            </>
+          )}
+          <time className={styles.date}>
+            {format(new Date(doodle.createdAt), 'MMM d, yyyy')}
+          </time>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }

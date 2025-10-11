@@ -152,6 +152,17 @@
   margin-bottom: 0;
 }
 
+.imageLink {
+  display: block;
+  cursor: pointer;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.imageLink:hover {
+  opacity: 0.9;
+  transform: scale(1.01);
+}
+
 .image {
   width: 100%;
   height: auto;

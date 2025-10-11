@@ -25,6 +25,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
   const [hasMore, setHasMore] = useState(false);
   const [hashtag, setHashtag] = useState(serverHashtag);
   const [hashtagWithoutPrefix, setHashtagWithoutPrefix] = useState(serverHashtagWithoutPrefix);
+  const [hasHandlesToWatch, setHasHandlesToWatch] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
@@ -43,21 +44,21 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
     }
   }, [router.isReady]);
 
-  // Fetch doodles when page changes
+  // Fetch doodles when page changes or config is loaded
   useEffect(() => {
     if (router.isReady) {
       fetchDoodles(currentPage);
       fetchCustomUsers();
     }
-  }, [router.isReady, currentPage]);
-  
+  }, [router.isReady, currentPage, hasHandlesToWatch]);
+
   useEffect(() => {
     if (router.isReady) {
       // Refresh every 5 minutes (but only current page)
       const interval = setInterval(() => fetchDoodles(currentPage), 5 * 60 * 1000);
       return () => clearInterval(interval);
     }
-  }, [router.isReady, currentPage]);
+  }, [router.isReady, currentPage, hasHandlesToWatch]);
 
   async function fetchDoodles(page: number = 1) {
     try {
@@ -67,6 +68,8 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
         throw new Error('Failed to fetch doodles');
       }
       const data: PaginatedDoodles = await response.json();
+
+      // Grouping is now handled server-side in the API when HANDLES_TO_WATCH is set
       setDoodles(data.doodles);
       setHasMore(data.hasMore);
       setTotalPages(Math.ceil(data.totalCount / data.pageSize));
@@ -98,6 +101,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
         const config = await response.json();
         setHashtag(config.hashtag);
         setHashtagWithoutPrefix(config.hashtagWithoutPrefix);
+        setHasHandlesToWatch(config.hasHandlesToWatch || false);
       }
     } catch (err) {
       console.error('Error fetching config:', err);

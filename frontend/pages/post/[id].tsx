@@ -4,9 +4,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getPostById, DoodlePost } from '../../lib/redis';
+import { getPostById, getFullPostById, DoodlePost } from '../../lib/redis';
 import { useTheme } from '../../contexts/ThemeContext';
 import styles from '../../styles/Post.module.css';
+import { getPostIdFromUri } from '../../lib/utils';
 
 interface PostPageProps {
   post: DoodlePost | null;
@@ -18,11 +19,16 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix }: PostPa
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const isHashtagDoodle = hashtagWithoutPrefix.indexOf('DailyDoodle') !== -1;
-  
+
   // Determine back link text based on URL
   const isMainPage = backUrl === '/';
   const postTypeStr = isHashtagDoodle ? 'doodle' : 'post';
   const backLinkText = (isMainPage ? 'Back to all' : 'Back to') + postTypeStr;
+
+  // Check if this is a multi-image view (no #image suffix in URI)
+  const hasMultipleImages = post && post.imageUrls.length > 1;
+  const postId = post ? getPostIdFromUri(post.uri) : '';
+  const basePostId = postId.split('#')[0];
 
   useEffect(() => {
     setMounted(true);
@@ -92,18 +98,32 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix }: PostPa
           
           <article className={styles.post}>
             <div className={styles.imageContainer}>
-              {post.imageUrls.map((url, index) => (
-                <div key={index} className={styles.imageWrapper}>
+              {post.imageUrls.map((url, index) => {
+                const imageLink = `/post/${encodeURIComponent(basePostId + '#image' + index)}?ref=${encodeURIComponent(backUrl)}`;
+                const ImageContent = (
                   <Image
                     src={url}
-                    alt={`${postTypeStr.charAt(0).toUpperCase + postTypeStr.slice(1)} by @${post.authorHandle}`}
+                    alt={`${postTypeStr.charAt(0).toUpperCase() + postTypeStr.slice(1)} by @${post.authorHandle}`}
                     width={800}
                     height={800}
                     className={styles.image}
                     priority
                   />
-                </div>
-              ))}
+                );
+
+                // If multi-image view, make each image clickable to its individual page
+                return (
+                  <div key={index} className={styles.imageWrapper}>
+                    {hasMultipleImages ? (
+                      <Link href={imageLink} className={styles.imageLink}>
+                        {ImageContent}
+                      </Link>
+                    ) : (
+                      ImageContent
+                    )}
+                  </div>
+                );
+              })}
             </div>
             
             <div className={styles.content}>
@@ -147,8 +167,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     // Decode the ID (e.g., "3m2uyrrsec22m%23image0" -> "3m2uyrrsec22m#image0")
     const decodedId = decodeURIComponent(id as string);
 
-    // Fetch the post directly by ID (no handle filter)
-    const post = await getPostById(decodedId);
+    // Determine which function to use based on whether ID contains #image
+    // If it has #image, fetch specific image post; otherwise fetch full post with all images
+    const hasImageSuffix = decodedId.includes('#image');
+    const post = hasImageSuffix
+      ? await getPostById(decodedId)
+      : await getFullPostById(decodedId);
 
     return {
       props: {

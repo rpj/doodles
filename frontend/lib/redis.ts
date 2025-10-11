@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { groupPostsByBaseUri } from './utils';
 
 let redis: Redis | null = null;
 
@@ -37,10 +38,11 @@ export interface PaginatedDoodles {
 export async function getDoodles(
   handle?: string,
   page: number = 1,
-  pageSize: number = 50
+  pageSize: number = 50,
+  shouldGroup: boolean = false
 ): Promise<PaginatedDoodles> {
   const client = getRedisClient();
-  
+
   let allDoodles: DoodlePost[];
   
   if (handle) {
@@ -129,12 +131,17 @@ export async function getDoodles(
   
   // Sort by creation date (newest first)
   allDoodles.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  
-  // Apply pagination to sorted results
+
+  // Apply grouping if requested (combines multi-image posts into single entries)
+  if (shouldGroup) {
+    allDoodles = groupPostsByBaseUri(allDoodles);
+  }
+
+  // Apply pagination to sorted (and possibly grouped) results
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const paginatedDoodles = allDoodles.slice(startIndex, endIndex);
-  
+
   return {
     doodles: paginatedDoodles,
     totalCount: allDoodles.length,
@@ -209,6 +216,60 @@ export async function getPostById(postId: string, handle?: string): Promise<Dood
     return null;
   } catch (error) {
     console.error('Error fetching post by ID:', error);
+    return null;
+  }
+}
+
+// Fetch a full post with all images by base post ID (strips #imageN suffix)
+// This combines all images from a multi-image post into a single DoodlePost
+export async function getFullPostById(postId: string, handle?: string): Promise<DoodlePost | null> {
+  const client = getRedisClient();
+
+  // Sanitize handle if provided
+  if (handle && !/^[a-zA-Z0-9._-]+$/.test(handle)) {
+    throw new Error('Invalid handle format');
+  }
+
+  try {
+    // Strip any #imageN suffix to get base post ID
+    const basePostId = postId.split('#')[0];
+
+    // Search through all-doodles:posts for all matching posts
+    const totalCount = await client.llen('all-doodles:posts');
+    const rawDoodles = await client.lrange('all-doodles:posts', 0, totalCount - 1);
+
+    const matchingPosts: DoodlePost[] = [];
+
+    for (const raw of rawDoodles) {
+      try {
+        const doodle = JSON.parse(raw) as DoodlePost;
+        // Extract base post ID from URI (strip #imageN if present)
+        const match = doodle.uri.match(/\/app\.bsky\.feed\.post\/([^#]+)/);
+        if (match && match[1] === basePostId) {
+          // If handle filter is provided, check it matches
+          if (!handle || doodle.authorHandle === handle) {
+            matchingPosts.push(doodle);
+          }
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+
+    if (matchingPosts.length === 0) {
+      return null;
+    }
+
+    // If we have multiple matching posts (multi-image), combine them
+    if (matchingPosts.length > 1) {
+      const grouped = groupPostsByBaseUri(matchingPosts);
+      return grouped[0] || null;
+    }
+
+    // Single post
+    return matchingPosts[0];
+  } catch (error) {
+    console.error('Error fetching full post by ID:', error);
     return null;
   }
 }

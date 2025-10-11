@@ -13,9 +13,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const hashtagWithoutPrefix = hashtag.substring(1);
 
+    // Check if HANDLES_TO_WATCH is set (for grouping logic)
+    const hasHandlesToWatch = !!(process.env.HANDLES_TO_WATCH && process.env.HANDLES_TO_WATCH.trim().length > 0);
+
     res.status(200).json({
       hashtag,
       hashtagWithoutPrefix,
+      hasHandlesToWatch,
     });
   } catch (error) {
     console.error('Error fetching config:', error);

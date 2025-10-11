@@ -4,21 +4,28 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getPostById, DoodlePost } from '../../../lib/redis';
+import { getPostById, getFullPostById, DoodlePost } from '../../../lib/redis';
 import { useTheme } from '../../../contexts/ThemeContext';
 import styles from '../../../styles/Post.module.css';
+import { getPostIdFromUri } from '../../../lib/utils';
 
 interface PostPageProps {
   post: DoodlePost | null;
   handle: string;
   hashtagWithoutPrefix: string;
+  numHandlesToWatch: number;
 }
 
-export default function HandlePostPage({ post, handle, hashtagWithoutPrefix }: PostPageProps) {
+export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const isHashtagDoodle = hashtagWithoutPrefix?.indexOf('DailyDoodle') !== -1;
   const postTypeStr = isHashtagDoodle ? 'doodle' : 'post';
+
+  // Check if this is a multi-image view (no #image suffix in URI)
+  const hasMultipleImages = post && post.imageUrls.length > 1;
+  const postId = post ? getPostIdFromUri(post.uri) : '';
+  const basePostId = postId.split('#')[0];
 
   useEffect(() => {
     setMounted(true);
@@ -42,7 +49,9 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix }: P
     );
   }
 
-  const cleanText = post.text.replace(/#\w+/g, '').trim();
+  const cleanText = post.text.replaceAll(new RegExp(`\\s*#${hashtagWithoutPrefix}`, 'g'), '').trim();
+  let [firstLine, ...rest] = cleanText.split('\n');
+  firstLine = firstLine.trim();
   const isRyan = handle === 'ryanjoseph.dev';
 
   function title() {
@@ -53,6 +62,38 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix }: P
     }
 
     return (post?.text.split('\n')[0] || date) + (hashtagWithoutPrefix ? ` - #${hashtagWithoutPrefix}` : '');
+  }
+
+  function cleanedText() {
+    if (isHashtagDoodle) {
+      return cleanText;
+    }
+
+    return <>
+      <h2>{firstLine}</h2>
+      {rest.join('\n')}
+    </>;
+  }
+
+  function backToContainer() {
+    if (isHashtagDoodle || hasMultipleImages) {
+      return <>
+        <Link href={`/${numHandlesToWatch === 1 ? handle : ''}`} className={styles.backLink}>
+          ← Back to {
+            numHandlesToWatch === 1 ?
+              `@${handle}&apos;s ${postTypeStr}s`
+            :
+              `#${hashtagWithoutPrefix}`
+          }
+        </Link>
+      </>;
+    }
+
+    return <>
+        <Link href={`/${handle}/post/${encodeURIComponent(basePostId)}`} className={styles.backLink}>
+          ← {firstLine}
+        </Link>
+      </>;
   }
 
   return (
@@ -83,29 +124,45 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix }: P
         </div>
         
         <div className={styles.container}>
-          <Link href={`/${handle}`} className={styles.backLink}>
-            ← Back to @{handle}&apos;s {postTypeStr}s
-          </Link>
+          {backToContainer()}
           
           <article className={styles.post}>
+            {(
+              hasMultipleImages ? <p className={styles.text}>{cleanedText()}</p> : null
+            )}
+
             <div className={styles.imageContainer}>
-              {post.imageUrls.map((url, index) => (
-                <div key={index} className={styles.imageWrapper}>
+              {post.imageUrls.map((url, index) => {
+                const imageLink = `/${handle}/post/${encodeURIComponent(basePostId + '#image' + index)}`;
+                const ImageContent = (
                   <Image
                     src={url}
-                    alt={`Doodle by @${post.authorHandle}`}
+                    alt={`${postTypeStr.charAt(0).toUpperCase() + postTypeStr.slice(1)} by @${post.authorHandle}`}
                     width={800}
                     height={800}
                     className={styles.image}
                     priority
                   />
-                </div>
-              ))}
+                );
+
+                // If multi-image view, make each image clickable to its individual page
+                return (
+                  <div key={index} className={styles.imageWrapper}>
+                    {hasMultipleImages ? (
+                      <Link href={imageLink} className={styles.imageLink}>
+                        {ImageContent}
+                      </Link>
+                    ) : (
+                      ImageContent
+                    )}
+                  </div>
+                );
+              })}
             </div>
             
             <div className={styles.content}>
-              {cleanText && (
-                <p className={styles.text}>{cleanText}</p>
+              {(
+                !hasMultipleImages ? <p className={styles.text}>{cleanedText()}</p> : null
               )}
               
               <div className={styles.meta}>
@@ -139,18 +196,25 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
   const hashtagWithoutPrefix = hashtag.substring(1);
 
+  const numHandlesToWatch = process.env.HANDLES_TO_WATCH?.trim().length ?? 0;
+
   try {
     // Decode the ID (e.g., "3m2uyrrsec22m%23image0" -> "3m2uyrrsec22m#image0")
     const decodedId = decodeURIComponent(id as string);
 
-    // Fetch the post directly by ID with handle filter
-    const post = await getPostById(decodedId, handle as string);
+    // Determine which function to use based on whether ID contains #image
+    // If it has #image, fetch specific image post; otherwise fetch full post with all images
+    const hasImageSuffix = decodedId.includes('#image');
+    const post = hasImageSuffix
+      ? await getPostById(decodedId, handle as string)
+      : await getFullPostById(decodedId, handle as string);
 
     return {
       props: {
         post: post || null,
         handle: handle as string,
         hashtagWithoutPrefix,
+        numHandlesToWatch,
       },
     };
   } catch (error) {
@@ -160,6 +224,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         post: null,
         handle: handle as string,
         hashtagWithoutPrefix: null,
+        numHandlesToWatch: 0,
       },
     };
   }

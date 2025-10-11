@@ -1,8 +1,15 @@
+.cardLink {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
 .card {
   background: var(--card-bg);
   border-radius: 2px;
   overflow: hidden;
-  box-shadow: 
+  box-shadow:
     0 0 0 1px var(--card-border),
     0 8px 24px var(--shadow-light),
     0 2px 6px var(--shadow-medium),
@@ -35,9 +42,9 @@
   opacity: 0.7;
 }
 
-.card:hover {
+.cardLink:hover .card {
   transform: translateY(-8px);
-  box-shadow: 
+  box-shadow:
     0 0 0 2px var(--accent-color),
     0 20px 40px var(--shadow-medium),
     0 8px 16px var(--shadow-dark),
@@ -63,7 +70,7 @@
   box-sizing: border-box;
 }
 
-.imageLink:hover .imageContainer::after {
+.imageLink:hover .imageWrapper::after {
   content: '';
   position: absolute;
   top: 0;
@@ -71,9 +78,9 @@
   right: 0;
   bottom: 0;
   background: linear-gradient(
-    135deg, 
-    transparent 0%, 
-    rgba(0, 0, 0, 0.03) 50%, 
+    135deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.03) 50%,
     transparent 100%
   );
   pointer-events: none;
@@ -83,6 +90,28 @@
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+.multiImageContainer {
+  aspect-ratio: unset;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.multiImageWrapper {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--hover-bg);
+  border-radius: 2px;
+}
+
+.multiImageWrapper:last-child {
+  margin-bottom: 0;
 }
 
 .image {
@@ -200,9 +229,9 @@
   opacity: 0.7;
 }
 
-.heroCard:hover {
+.cardLink:hover .heroCard {
   transform: translateY(-12px) scale(1.02);
-  box-shadow: 
+  box-shadow:
     0 0 0 3px var(--accent-color),
     0 0 0 4px var(--card-border),
     0 30px 80px var(--shadow-dark),
@@ -248,11 +277,11 @@
     width: 100%;
     max-width: 400px;
   }
-  
-  .heroCard:hover {
+
+  .cardLink:hover .heroCard {
     transform: translateY(-8px) scale(1.01);
   }
-  
+
   .heroImageContainer {
     max-width: 400px;
     width: 100%;
