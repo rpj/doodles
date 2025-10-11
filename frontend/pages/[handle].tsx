@@ -99,10 +99,36 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
   const isRyan = handleStr === 'ryanjoseph.dev';
   const handleShort = handleStr?.replace('.bsky.social', '') ?? '';
 
+  function title() {
+    if (isHashtagDoodle) {
+      return isRyan ? 'Daily Doodles' : (handleStr ? `${handleShort}'s Daily Doodles` : 'Daily Doodles');
+    }
+
+    return `${serverHashtag} Latest Hero View`;
+  }
+
+  function subtitle() {
+    if (isHashtagDoodle) {
+      return isRyan ? (
+        <>
+          <a href="https://ryanjoseph.dev" target="_blank">I've</a> been trying to draw a "doodle a day" both as a respite and to improve my skills.<br /><br />
+          If they're not awful, I'll <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}?author=ryanjoseph.dev`} target="_blank">post them</a> and they'll automatically end up here.
+        </>
+      ) : (
+        <>
+          <a href={`https://bsky.app/profile/${handleStr}`} target="_blank">@{handleStr}</a>'s&nbsp;
+          <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix.toLowerCase()}?author=${handleStr}`} target="_blank">{hashtag}</a>s
+        </>
+      );
+    }
+
+    return ``;
+  }
+
   return (
     <>
       <Head>
-        <title>{isRyan ? 'Daily Doodles' : (handleStr ? `${handleShort}'s Daily Doodles` : 'Daily Doodles')}</title>
+        <title>{title()}</title>
         <meta name="description" content={isRyan ? "@ryanjoseph.dev's collection of daily doodles from Bluesky" : handleStr ? `${handleShort}'s ${hashtag} posts from Bluesky` : 'Daily doodles from Bluesky'} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -156,19 +182,14 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
         </div>
         
         <header className={styles.header}>
-          <h1 className={styles.title}>{isRyan ? 'Daily Doodles' : `${handleShort}'s Doodles`}</h1>
+          <h1 className={styles.title}>
+            {isHashtagDoodle ? 
+              (isRyan ? 'Daily Doodles' : `${handleShort}'s Doodles`) : 
+              `${serverHashtag} Latest Hero View`
+            }
+            </h1>
           <p className={styles.subtitle}>
-            {isRyan ? (
-              <>
-                <a href="https://ryanjoseph.dev" target="_blank">I've</a> been trying to draw a "doodle a day" both as a respite and to improve my skills.<br/><br/>
-                If they're not awful, I'll <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}?author=ryanjoseph.dev`} target="_blank">post them</a> and they'll automatically end up here.
-              </>
-            ) : (
-              <>
-                <a href={`https://bsky.app/profile/${handleStr}`} target="_blank">@{handleStr}</a>'s&nbsp;
-                <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix.toLowerCase()}?author=${handleStr}`} target="_blank">{hashtag}</a>s
-              </>
-            )}
+            {subtitle()}
           </p>
         </header>
 

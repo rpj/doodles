@@ -48,10 +48,20 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix }: PostPa
 
   const cleanText = post.text.trim();
 
+  function title() {
+    const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
+    
+    if (isHashtagDoodle) {
+      return `Daily Doodle - ${date}`;
+    }
+
+    return post?.text.split('\n')[0] || date;
+  }
+
   return (
     <>
       <Head>
-        <title>{`${format(new Date(post.createdAt), 'MMM d, yyyy')}`}</title>
+        <title>{title()}</title>
         <meta name="description" content={`A ${isHashtagDoodle ? 'doodle' : `#${hashtagWithoutPrefix} post`} from ${post.authorDisplayName}`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>

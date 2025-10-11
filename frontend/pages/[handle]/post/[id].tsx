@@ -45,10 +45,20 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix }: P
   const cleanText = post.text.replace(/#\w+/g, '').trim();
   const isRyan = handle === 'ryanjoseph.dev';
 
+  function title() {
+    const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
+
+    if (isHashtagDoodle) {
+      return `${isRyan ? 'Daily Doodle' : `@${handle}'s Doodle`} - ${date}`;
+    }
+
+    return (post?.text.split('\n')[0] || date) + (hashtagWithoutPrefix ? ` - #${hashtagWithoutPrefix}` : '');
+  }
+
   return (
     <>
       <Head>
-        <title>{`${format(new Date(post.createdAt), 'MMM d, yyyy')}`}</title>
+        <title>{title()}</title>
         <meta name="description" content={`A daily ${isHashtagDoodle ? 'doodle' : `#${hashtagWithoutPrefix} post`} from ${post.authorDisplayName}`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
