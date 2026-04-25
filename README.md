@@ -73,7 +73,19 @@ npm run lint          # ESLint
 npm install           # Install dependencies
 npm run start         # Start listener service
 npm run backfill      # Import hardcoded historical posts
+npm run backfill-facets  # Re-fetch facets (rich-text URIs/tags/mentions) for legacy posts
 ```
+
+**Backfilling rich text on legacy posts:**
+
+The listener captures Bluesky's rich-text `facets` array on every new post,
+which the post page uses to render full inline URLs / clickable hashtags /
+mentions. Posts ingested before this feature was added store a truncated
+text without facets. Run `npm run backfill-facets` once to re-fetch every
+known post from Bluesky's public API and stamp the original facets onto
+the stored DoodlePost record. Idempotent (only fetches posts missing the
+field); add `--force` to re-fetch unconditionally; add `--dry-run` to
+preview without writing.
 
 ### Tools (./tools/)
 ```bash

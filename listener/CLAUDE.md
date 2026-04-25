@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Listener Service
 - `npm run start` - Start the main listener service
 - `npm run backfill` - Import hardcoded list of existing doodle posts
+- `npm run backfill-facets` - Re-fetch Bluesky `facets` for legacy posts so the post page can render full URLs / clickable hashtags / mentions. Idempotent; supports `--dry-run` and `--force`.
 
 ### Frontend
 - `npm run dev` - Development server (default port 3000, configurable via PORT)

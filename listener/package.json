@@ -5,6 +5,7 @@
   "scripts": {
     "start": "npx ts-node index.ts",
     "backfill": "npx ts-node backfill.ts",
+    "backfill-facets": "npx ts-node backfill-facets.ts",
     "clear-redis": "npx ts-node clear-redis.ts"
   },
   "keywords": [],
