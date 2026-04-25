@@ -24,7 +24,15 @@ export function getPostIdAndImageIndex(uri: string): { postId: string; imageInde
 export function groupPostsByBaseUri<T extends { uri: string; imageUrls: string[]; createdAt: string }>(posts: T[]): T[] {
   const grouped = new Map<string, T>();
 
-  for (const post of posts) {
+  // Sort by image index ascending so each base URI accumulates imageUrls in
+  // [image0, image1, ...] order regardless of how Redis returned them.
+  const byImageIndex = [...posts].sort((a, b) => {
+    const aIdx = parseInt(a.uri.match(/#image(\d+)/)?.[1] ?? '0', 10);
+    const bIdx = parseInt(b.uri.match(/#image(\d+)/)?.[1] ?? '0', 10);
+    return aIdx - bIdx;
+  });
+
+  for (const post of byImageIndex) {
     // Get base URI without the #imageN suffix
     const baseUri = post.uri.split('#')[0];
 
