@@ -10,18 +10,18 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  // Default is dark; an inline script in _document.tsx sets the data-theme
+  // attribute pre-hydration (reading localStorage) so the first paint matches.
+  const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
-    // Check if user has a saved preference
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme) {
-      setTheme(savedTheme);
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      setTheme(saved);
     }
   }, []);
 
   useEffect(() => {
-    // Apply theme to document
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);

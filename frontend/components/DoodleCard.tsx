@@ -26,45 +26,41 @@ export default function DoodleCard({
   priority = false,
 }: DoodleCardProps) {
   const postId = getPostIdFromUri(doodle.uri);
-  const isMainPage = !userHandle; // If no userHandle context, we're on the main page
-  const basePostId = postId.split('#')[0]; // Base ID without #imageN suffix
+  const isMainPage = !userHandle;
+  const basePostId = postId.split('#')[0];
 
-  // Generate the full post link (all images, no #imageN)
   const getFullPostLink = (): string => {
     if (userHandle) {
-      // User page: /[handle]/post/[id]
       return `/${userHandle}/post/${encodeURIComponent(basePostId)}`;
     } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
-      // Main page but author is a custom user: route to their user page
       return `/${doodle.authorHandle}/post/${encodeURIComponent(basePostId)}`;
     } else {
-      // Main page: /post/[id] with ref back to main
       return `/post/${encodeURIComponent(basePostId)}?ref=${encodeURIComponent('/')}`;
     }
   };
 
-  // Generate the appropriate post link for a given image index
   const getImageLink = (imageIndex: number): string => {
-    // Construct the full post ID with image index
     const fullPostId = `${basePostId}#image${imageIndex}`;
-
     if (userHandle) {
-      // User page: /[handle]/post/[id]
       return `/${userHandle}/post/${encodeURIComponent(fullPostId)}`;
     } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
-      // Main page but author is a custom user: route to their user page
       return `/${doodle.authorHandle}/post/${encodeURIComponent(fullPostId)}`;
     } else {
-      // Main page: /post/[id] with ref back to main
       return `/post/${encodeURIComponent(fullPostId)}?ref=${encodeURIComponent('/')}`;
     }
   };
 
   const hasMultipleImages = doodle.imageUrls.length > 1;
+  const cleanedText = isMainPage && doodle.text
+    ? doodle.text
+        .replaceAll('\n', ' / ')
+        .replaceAll(new RegExp(`\\s*${serverHashtag}`, 'g'), '')
+        .trim()
+    : '';
 
   return (
-    <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
-      <div className={`${styles.imageContainer} ${isHero ? styles.heroImageContainer : ''} ${hasMultipleImages ? styles.multiImageContainer : ''}`}>
+    <article className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
+      <div className={`${styles.imageContainer} ${hasMultipleImages ? styles.multiImageContainer : ''}`}>
         {doodle.imageUrls.map((url, index) => {
           const loadingMode = priority && index === 0
             ? { priority: true as const }
@@ -79,23 +75,21 @@ export default function DoodleCard({
                 {isHero ? (
                   <Image
                     src={url}
-                    alt={`Doodle by @${doodle.authorHandle}`}
-                    width={700}
-                    height={0}
-                    style={{
-                      width: '100%',
-                      height: 'auto',
-                    }}
+                    alt={`Post by @${doodle.authorHandle}`}
+                    width={1200}
+                    height={900}
                     className={styles.image}
+                    sizes="(max-width: 768px) 100vw, 880px"
                     {...loadingMode}
                   />
                 ) : (
                   <Image
                     src={url}
                     alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
-                    width={400}
-                    height={400}
+                    width={600}
+                    height={600}
                     className={styles.image}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 380px"
                     {...loadingMode}
                   />
                 )}
@@ -105,28 +99,23 @@ export default function DoodleCard({
         })}
       </div>
 
-      {isMainPage && isHashtagDoodle && (
-        <div className={styles.authorBlock}>
+      <div className={styles.meta}>
+        {isMainPage && isHashtagDoodle && (
           <div className={styles.author}>
             <a href={doodle.postUrl} target="_blank" rel="noopener noreferrer">
               @{doodle.authorHandle}
             </a>
           </div>
-        </div>
-      )}
-
-      <Link href={getFullPostLink()} className={styles.contentLink}>
-        <div className={styles.content}>
-          {isMainPage && doodle.text && (
-            <div className={styles.text}>
-              {doodle.text.replaceAll('\n', ' / ').replaceAll(new RegExp(`\\s*${serverHashtag}`, 'g'), '').trim()}
-            </div>
+        )}
+        <Link href={getFullPostLink()} className={styles.titleLink}>
+          {cleanedText && (
+            <h3 className={styles.title}>{cleanedText}</h3>
           )}
           <time className={styles.date}>
             {format(new Date(doodle.createdAt), 'MMM d, yyyy')}
           </time>
-        </div>
-      </Link>
-    </div>
+        </Link>
+      </div>
+    </article>
   );
 }

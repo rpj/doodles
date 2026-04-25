@@ -4,54 +4,60 @@
   margin: 0;
 }
 
-
 :root {
-  --bg-color: #ffffff;
-  --text-color: #000000;
-  --card-bg: #ffffff;
-  --card-border: #e0e0e0;
-  --hover-bg: #f9f9f9;
-  --link-color: #1a4b84;
-  --accent-color: #c0c0c0;
-  --accent-subtle: #9898a8;
-  --shadow-light: rgba(0, 0, 0, 0.08);
-  --shadow-medium: rgba(0, 0, 0, 0.15);
-  --shadow-dark: rgba(0, 0, 0, 0.25);
+  /* Light — warm paper / ink */
+  --bg-color: #f7f5f0;
+  --surface: #ffffff;
+  --text-color: #1a1a1a;
+  --text-muted: #6b6b6b;
+  --hairline: #d8d4cb;
+  --hairline-strong: #b8b4ab;
+  --accent-color: #8b6634;
+  --accent-hover: #6e4f24;
+  --link-color: #8b6634;
 }
 
 [data-theme="dark"] {
-  --bg-color: #000000;
-  --text-color: #ffffff;
-  --card-bg: #1a1a1a;
-  --card-border: #333333;
-  --hover-bg: #222222;
-  --link-color: #4a90e2;
-  --accent-color: #d3d3d3;
-  --accent-subtle: #a8a8b8;
-  --shadow-light: rgba(0, 0, 0, 0.4);
-  --shadow-medium: rgba(0, 0, 0, 0.6);
-  --shadow-dark: rgba(0, 0, 0, 0.8);
+  /* Dark (default) — near-black / warm off-white */
+  --bg-color: #0c0c0c;
+  --surface: #141414;
+  --text-color: #f0ece5;
+  --text-muted: #8a857d;
+  --hairline: #262320;
+  --hairline-strong: #3a352f;
+  --accent-color: #c89456;
+  --accent-hover: #d8a468;
+  --link-color: #c89456;
 }
 
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  font-family: 'Funnel Display', system-ui;
+  font-family: 'Schibsted Grotesk', system-ui, sans-serif;
   font-weight: 400;
   font-style: normal;
-  background-color: var(--bg-color) !important;
-  color: var(--text-color) !important;
-  transition: background-color 0.4s ease, color 0.4s ease;
-  line-height: 1.6;
+  font-feature-settings: 'ss01', 'cv01', 'cv11';
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.35s ease, color 0.35s ease;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
-  color: var(--link-color);
+  color: inherit;
   text-decoration: none;
 }
 
 img {
   max-width: 100%;
   height: auto;
+}
+
+::selection {
+  background: var(--accent-color);
+  color: var(--bg-color);
 }

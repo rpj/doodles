@@ -128,7 +128,7 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
           
           <article className={styles.post}>
             {(
-              hasMultipleImages ? <p className={styles.text}>{cleanedText()}</p> : null
+              hasMultipleImages ? <div className={styles.text}>{cleanedText()}</div> : null
             )}
 
             <div className={styles.imageContainer}>
@@ -162,7 +162,7 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
             
             <div className={styles.content}>
               {(
-                !hasMultipleImages ? <p className={styles.text}>{cleanedText()}</p> : null
+                !hasMultipleImages ? <div className={styles.text}>{cleanedText()}</div> : null
               )}
               
               <div className={styles.meta}>
