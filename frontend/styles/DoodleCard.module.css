@@ -56,6 +56,24 @@
   transform: scale(1.025);
 }
 
+/* "+N" badge on multi-image preview cards */
+.imageCount {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 0.35rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: #ffffff;
+  background: rgba(12, 12, 12, 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  font-feature-settings: 'tnum';
+  line-height: 1;
+}
+
 /* Meta block — border-top hairline acts as the "image → text" rule */
 .meta {
   border-top: 1px solid var(--hairline);

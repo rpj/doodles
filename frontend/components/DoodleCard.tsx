@@ -51,6 +51,16 @@ export default function DoodleCard({
   };
 
   const hasMultipleImages = doodle.imageUrls.length > 1;
+  // On non-hero cards with multiple images we show a single preview image
+  // (the first) with a "+N" badge. The whole image links to the full post,
+  // not the per-image page, so the user lands somewhere they can actually
+  // see the rest of the gallery.
+  const showPreviewOnly = !isHero && hasMultipleImages;
+  const visibleImages = showPreviewOnly
+    ? doodle.imageUrls.slice(0, 1)
+    : doodle.imageUrls;
+  const extraCount = showPreviewOnly ? doodle.imageUrls.length - 1 : 0;
+
   const cleanedText = isMainPage && doodle.text
     ? doodle.text
         .replaceAll('\n', ' / ')
@@ -60,18 +70,19 @@ export default function DoodleCard({
 
   return (
     <article className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
-      <div className={`${styles.imageContainer} ${hasMultipleImages ? styles.multiImageContainer : ''}`}>
-        {doodle.imageUrls.map((url, index) => {
+      <div className={`${styles.imageContainer} ${hasMultipleImages && !showPreviewOnly ? styles.multiImageContainer : ''}`}>
+        {visibleImages.map((url, index) => {
           const loadingMode = priority && index === 0
             ? { priority: true as const }
             : { loading: 'lazy' as const };
+          const linkHref = showPreviewOnly ? getFullPostLink() : getImageLink(index);
           return (
             <Link
               key={index}
-              href={getImageLink(index)}
+              href={linkHref}
               className={styles.imageLink}
             >
-              <div className={`${styles.imageWrapper} ${hasMultipleImages ? styles.multiImageWrapper : ''}`}>
+              <div className={`${styles.imageWrapper} ${hasMultipleImages && !showPreviewOnly ? styles.multiImageWrapper : ''}`}>
                 {isHero ? (
                   <Image
                     src={url}
@@ -94,6 +105,11 @@ export default function DoodleCard({
                   />
                 )}
               </div>
+              {extraCount > 0 && (
+                <span className={styles.imageCount} aria-label={`${doodle.imageUrls.length} images in this post`}>
+                  +{extraCount}
+                </span>
+              )}
             </Link>
           );
         })}
