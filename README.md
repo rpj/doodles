@@ -154,14 +154,24 @@ Changes take effect on the next gallery refresh — no service restart required.
 
 ### Core Type
 ```typescript
+type Facet = {
+  index: { byteStart: number; byteEnd: number };
+  features: Array<
+    | { $type: 'app.bsky.richtext.facet#link'; uri: string }
+    | { $type: 'app.bsky.richtext.facet#tag'; tag: string }
+    | { $type: 'app.bsky.richtext.facet#mention'; did: string }
+  >;
+};
+
 type DoodlePost = {
   uri: string;           // "at://did/app.bsky.feed.post/id#imageN"
   authorHandle: string;
   authorDisplayName: string;
-  text: string;
+  text: string;          // Bluesky display text — inline URLs may be truncated to ~30 chars
   imageUrls: string[];   // Single image per post entry
   createdAt: string;
   postUrl: string;       // Bluesky web URL
+  facets?: Facet[];      // Bluesky rich-text facets — full URIs for inline links / tags / mentions, byte-offset indexed against `text`
 }
 ```
 

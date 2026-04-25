@@ -2,6 +2,16 @@
 
 import { Redis } from 'ioredis';
 
+type FacetFeature =
+  | { $type: 'app.bsky.richtext.facet#link'; uri: string }
+  | { $type: 'app.bsky.richtext.facet#tag'; tag: string }
+  | { $type: 'app.bsky.richtext.facet#mention'; did: string };
+
+type Facet = {
+  index: { byteStart: number; byteEnd: number };
+  features: FacetFeature[];
+};
+
 type DoodlePost = {
   uri: string,
   authorHandle: string,
@@ -10,6 +20,7 @@ type DoodlePost = {
   imageUrls: string[],
   createdAt: string,
   postUrl: string,
+  facets?: Facet[],
 };
 
 async function migrateToUris() {

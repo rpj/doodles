@@ -6,6 +6,16 @@ const REDIS_SET_NAME = `all-doodles:processed-uris`;
 const REDIS_DOODLE_LIST = `all-doodles:posts`;
 const REDIS_SESSION_NAME = `all-doodles:saved-session`;
 
+type FacetFeature =
+  | { $type: 'app.bsky.richtext.facet#link'; uri: string }
+  | { $type: 'app.bsky.richtext.facet#tag'; tag: string }
+  | { $type: 'app.bsky.richtext.facet#mention'; did: string };
+
+type Facet = {
+  index: { byteStart: number; byteEnd: number };
+  features: FacetFeature[];
+};
+
 type DoodlePost = {
   uri: string,
   authorHandle: string,
@@ -14,6 +24,7 @@ type DoodlePost = {
   imageUrls: string[],
   createdAt: string,
   postUrl: string,
+  facets?: Facet[],
 };
 
 // Hardcoded list of posts to backfill (in chronological order)
@@ -155,7 +166,8 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
         text: post.record?.text || '',
         imageUrls: [imageUrls[i]], // Single image per post
         createdAt: post.record?.createdAt || new Date().toISOString(),
-        postUrl
+        postUrl,
+        facets: (post.record as any)?.facets,
       };
       
       // Store in Redis (using RPUSH to maintain chronological order)

@@ -42,14 +42,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Data Structure:**
 ```typescript
+type Facet = {
+  index: { byteStart: number; byteEnd: number };
+  features: Array<
+    | { $type: 'app.bsky.richtext.facet#link'; uri: string }
+    | { $type: 'app.bsky.richtext.facet#tag'; tag: string }
+    | { $type: 'app.bsky.richtext.facet#mention'; did: string }
+  >;
+};
+
 type DoodlePost = {
   uri: string,           // Format: "at://did/app.bsky.feed.post/id#imageN"
   authorHandle: string,
   authorDisplayName: string,
-  text: string,
+  text: string,          // Bluesky's display form (URLs may be truncated to ~30 chars + …)
   imageUrls: string[],   // Single image per post in listener
   createdAt: string,
   postUrl: string,       // Bluesky web URL
+  facets?: Facet[],      // Bluesky rich-text facets — full URIs for inline links, etc.
 }
 ```
 

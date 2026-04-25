@@ -50,10 +50,11 @@ type DoodlePost = {
   uri: string,           // "at://did/app.bsky.feed.post/id#imageN"
   authorHandle: string,
   authorDisplayName: string,
-  text: string,
+  text: string,          // Bluesky display text (inline URLs may be truncated)
   imageUrls: string[],
   createdAt: string,
   postUrl: string,
+  facets?: Facet[],      // Bluesky rich-text facets — used by the post page to render full inline URLs / hashtags / mentions as clickable links
 }
 ```
 

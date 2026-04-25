@@ -10,6 +10,16 @@ export function getRedisClient(): Redis {
   return redis;
 }
 
+export type FacetFeature =
+  | { $type: 'app.bsky.richtext.facet#link'; uri: string }
+  | { $type: 'app.bsky.richtext.facet#tag'; tag: string }
+  | { $type: 'app.bsky.richtext.facet#mention'; did: string };
+
+export type Facet = {
+  index: { byteStart: number; byteEnd: number };
+  features: FacetFeature[];
+};
+
 export type DoodlePost = {
   uri: string;
   authorHandle: string;
@@ -18,6 +28,7 @@ export type DoodlePost = {
   imageUrls: string[];
   createdAt: string;
   postUrl: string;
+  facets?: Facet[];
 };
 
 export async function getCustomUsers(): Promise<string[]> {

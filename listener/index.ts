@@ -23,6 +23,16 @@ const HANDLES_TO_WATCH = process.env.HANDLES_TO_WATCH
 const SEARCH_BATCH_SIZE = 100;
 const maxBatches = 20; // Safety limit to prevent infinite loops
 
+type FacetFeature =
+  | { $type: 'app.bsky.richtext.facet#link'; uri: string }
+  | { $type: 'app.bsky.richtext.facet#tag'; tag: string }
+  | { $type: 'app.bsky.richtext.facet#mention'; did: string };
+
+type Facet = {
+  index: { byteStart: number; byteEnd: number };
+  features: FacetFeature[];
+};
+
 type DoodlePost = {
   uri: string,
   authorHandle: string,
@@ -31,6 +41,7 @@ type DoodlePost = {
   imageUrls: string[],
   createdAt: string,
   postUrl: string,
+  facets?: Facet[],
 };
 
 async function login(agent: AtpAgent, redis: Redis, sessionPrefix: string): Promise<string> {
@@ -278,7 +289,8 @@ async function processPost(
       text: postText,
       imageUrls: [imageUrls[i]], // Single image per post
       createdAt: (post.record as any).createdAt,
-      postUrl
+      postUrl,
+      facets: (post.record as any).facets,
     };
     
     // Store in Redis - main list for backwards compatibility
