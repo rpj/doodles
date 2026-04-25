@@ -104,7 +104,7 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
       return isRyan ? 'Daily Doodles' : (handleStr ? `${handleShort}'s Daily Doodles` : 'Daily Doodles');
     }
 
-    return `${serverHashtag} Latest Hero View`;
+    return handleStr ? `@${handleStr}` : serverHashtag;
   }
 
   function subtitle() {
@@ -182,19 +182,14 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
         </div>
         
         <header className={styles.header}>
-          <h1 className={styles.title}>
-            {isHashtagDoodle ? 
-              (isRyan ? 'Daily Doodles' : `${handleShort}'s Doodles`) : 
-              `${serverHashtag} Latest Hero View`
-            }
-            </h1>
+          <h1 className={styles.title}>{title()}</h1>
           <p className={styles.subtitle}>
             {subtitle()}
           </p>
         </header>
 
         {loading && (
-          <div className={styles.loading}>Loading doodles...</div>
+          <div className={styles.loading}>Loading...</div>
         )}
 
         {error && (
