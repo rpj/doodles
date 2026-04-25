@@ -121,6 +121,35 @@ redis-cli DEL __doodles:users
 
 Changes take effect immediately - no service restart required.
 
+### Hero Image Overrides
+
+Multi-image posts default to showing the first image (`#image0`) as the gallery
+card preview. To feature a different image without changing the underlying post,
+add an entry to the `__doodles:hero-overrides` Redis hash. The field is the base
+post ID (the part after `app.bsky.feed.post/` in the URI, also the last segment
+of the post URL on Bluesky); the value is the zero-based image index to feature.
+
+```bash
+# Use image1 (the second image) as the gallery preview for post 3mjve4rdk7k2c
+redis-cli HSET __doodles:hero-overrides 3mjve4rdk7k2c 1
+
+# Remove the override (revert to image0)
+redis-cli HDEL __doodles:hero-overrides 3mjve4rdk7k2c
+
+# List all current overrides
+redis-cli HGETALL __doodles:hero-overrides
+```
+
+Effects:
+- Applies to the gallery `/` and `/[handle]` pages — both the small preview cards
+  and the dominant hero card on `/[handle]` page 1.
+- The post detail page (`/post/[id]` and `/[handle]/post/[id]`) preserves the
+  original image order regardless of overrides.
+- An override index `<= 0`, non-numeric, or beyond the post's image count is
+  silently ignored.
+
+Changes take effect on the next gallery refresh — no service restart required.
+
 ## Data Structure
 
 ### Core Type
@@ -160,6 +189,7 @@ This enables individual image routing and display.
 
 **Special keys:**
 - `__doodles:users` - Hash mapping handles to Redis prefixes (runtime config)
+- `__doodles:hero-overrides` - Hash mapping base post IDs to a zero-based image index used as the gallery card preview (see [Hero Image Overrides](#hero-image-overrides))
 
 ## Frontend Features
 

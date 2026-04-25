@@ -135,6 +135,7 @@ export async function getDoodles(
   // Apply grouping if requested (combines multi-image posts into single entries)
   if (shouldGroup) {
     allDoodles = groupPostsByBaseUri(allDoodles);
+    allDoodles = await applyHeroOverrides(client, allDoodles);
   }
 
   // Apply pagination to sorted (and possibly grouped) results
@@ -155,6 +156,61 @@ export async function getDoodles(
 export async function getAllDoodles(handle?: string): Promise<DoodlePost[]> {
   const result = await getDoodles(handle, 1, -1);
   return result.doodles;
+}
+
+// Reorder imageUrls so the override-selected image becomes the gallery preview
+// (and the lead image on hero cards). Reads `__doodles:hero-overrides` as a
+// Redis hash where the field is the base post ID (e.g. "3mjve4rdk7k2c") and
+// the value is the zero-based image index to feature. Only applies to grouped
+// multi-image posts; the post detail page keeps the original order.
+async function applyHeroOverrides(
+  client: Redis,
+  posts: DoodlePost[]
+): Promise<DoodlePost[]> {
+  const basePostIdFromUri = (uri: string): string | null => {
+    const match = uri.match(/\/app\.bsky\.feed\.post\/([^#]+)/);
+    return match ? match[1] : null;
+  };
+
+  const multiImageIds = Array.from(
+    new Set(
+      posts
+        .filter(p => p.imageUrls.length > 1)
+        .map(p => basePostIdFromUri(p.uri))
+        .filter((id): id is string => !!id)
+    )
+  );
+
+  if (multiImageIds.length === 0) return posts;
+
+  const values = await client.hmget('__doodles:hero-overrides', ...multiImageIds);
+  const overrides = new Map<string, number>();
+  multiImageIds.forEach((id, i) => {
+    const v = values[i];
+    if (v == null) return;
+    const idx = parseInt(v, 10);
+    // Index of 0 is already the default; treat anything <= 0 or NaN as no-op
+    if (!isNaN(idx) && idx > 0) {
+      overrides.set(id, idx);
+    }
+  });
+
+  if (overrides.size === 0) return posts;
+
+  return posts.map(post => {
+    const id = basePostIdFromUri(post.uri);
+    if (!id) return post;
+    const idx = overrides.get(id);
+    if (idx === undefined || idx >= post.imageUrls.length) return post;
+    return {
+      ...post,
+      imageUrls: [
+        post.imageUrls[idx],
+        ...post.imageUrls.slice(0, idx),
+        ...post.imageUrls.slice(idx + 1),
+      ],
+    };
+  });
 }
 
 // Fetch a single post by post ID, optionally filtered by handle
