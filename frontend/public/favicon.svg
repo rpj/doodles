@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Watch case -->
+  <circle cx="16" cy="16" r="13" stroke="#c89456" stroke-width="2.5"/>
+  <!-- RJ monogram -->
+  <text
+    x="16"
+    y="20.8"
+    text-anchor="middle"
+    font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+    font-size="13.5"
+    font-weight="800"
+    letter-spacing="-0.7"
+    fill="#c89456">RJ</text>
+</svg>
