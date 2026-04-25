@@ -51,6 +51,11 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
   }
 
   const isRyan = handle === 'ryanjoseph.dev';
+  // First line of the post text with the trigger hashtag stripped — used as
+  // the back-link label on single-image post views.
+  const firstLine = stripTriggerHashtag(post.text, post.facets, hashtagWithoutPrefix)
+    .text.split('\n')[0]
+    .trim();
 
   function title() {
     const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
