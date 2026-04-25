@@ -8,6 +8,7 @@ import { getPostById, getFullPostById, DoodlePost } from '../../../lib/redis';
 import { useTheme } from '../../../contexts/ThemeContext';
 import styles from '../../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../../lib/utils';
+import RichText, { sliceRichText, findFirstNewlineByte, byteLength, stripTriggerHashtag } from '../../../components/RichText';
 
 interface PostPageProps {
   post: DoodlePost | null;
@@ -49,9 +50,6 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
     );
   }
 
-  const cleanText = post.text.replaceAll(new RegExp(`\\s*#${hashtagWithoutPrefix}`, 'g'), '').trim();
-  let [firstLine, ...rest] = cleanText.split('\n');
-  firstLine = firstLine.trim();
   const isRyan = handle === 'ryanjoseph.dev';
 
   function title() {
@@ -65,13 +63,26 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
   }
 
   function cleanedText() {
+    // Strip the trigger hashtag (and any preceding whitespace); it's redundant
+    // on the post page since every post here matched it.
+    const stripped = stripTriggerHashtag(post!.text, post!.facets, hashtagWithoutPrefix);
+
     if (isHashtagDoodle) {
-      return cleanText;
+      return <RichText text={stripped.text} facets={stripped.facets} />;
     }
 
+    // Non-doodle deployments: lead the post page with the first line as an
+    // editorial h2, body below. Split byte-correctly so facet offsets remain
+    // valid against each segment.
+    const nlByte = findFirstNewlineByte(stripped.text);
+    if (nlByte < 0) {
+      return <h2><RichText text={stripped.text} facets={stripped.facets} /></h2>;
+    }
+    const head = sliceRichText(stripped.text, stripped.facets, 0, nlByte);
+    const tail = sliceRichText(stripped.text, stripped.facets, nlByte + 1, byteLength(stripped.text));
     return <>
-      <h2>{firstLine}</h2>
-      {rest.join('\n')}
+      <h2><RichText text={head.text} facets={head.facets} /></h2>
+      <RichText text={tail.text} facets={tail.facets} />
     </>;
   }
 

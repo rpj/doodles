@@ -8,6 +8,7 @@ import { getPostById, getFullPostById, DoodlePost } from '../../lib/redis';
 import { useTheme } from '../../contexts/ThemeContext';
 import styles from '../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../lib/utils';
+import RichText, { stripTriggerHashtag } from '../../components/RichText';
 
 interface PostPageProps {
   post: DoodlePost | null;
@@ -52,7 +53,8 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix }: PostPa
     );
   }
 
-  const cleanText = post.text.trim();
+  const stripped = stripTriggerHashtag(post.text, post.facets, hashtagWithoutPrefix);
+  const cleanText = stripped.text;
 
   function title() {
     const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
@@ -128,7 +130,7 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix }: PostPa
             
             <div className={styles.content}>
               {cleanText && (
-                <p className={styles.text}>{cleanText}</p>
+                <p className={styles.text}><RichText text={cleanText} facets={stripped.facets} /></p>
               )}
               
               <div className={styles.meta}>
