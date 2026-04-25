@@ -58,78 +58,68 @@ export default function DoodleCard({
     }
   };
 
-  function mainpageCardHeader() {
-    if (!isHashtagDoodle) {
-      return <></>;
-    }
-
-    return <>
-        <div className={styles.author}>
-          <a href={doodle.postUrl} target="_blank" rel="noopener noreferrer">
-            @{doodle.authorHandle}
-          </a>
-        </div>
-      </>;
-  }
-  
   const hasMultipleImages = doodle.imageUrls.length > 1;
 
   return (
-    <Link href={getFullPostLink()} className={styles.cardLink}>
-      <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
-        <div className={`${styles.imageContainer} ${isHero ? styles.heroImageContainer : ''} ${hasMultipleImages ? styles.multiImageContainer : ''}`}>
-          {doodle.imageUrls.map((url, index) => (
-            <Link
-              key={index}
-              href={getImageLink(index)}
-              className={styles.imageLink}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className={`${styles.imageWrapper} ${hasMultipleImages ? styles.multiImageWrapper : ''}`}>
-                {isHero ? (
-                  <Image
-                    src={url}
-                    alt={`Doodle by @${doodle.authorHandle}`}
-                    width={700}
-                    height={0}
-                    style={{
-                      width: '100%',
-                      height: 'auto',
-                    }}
-                    className={styles.image}
-                    loading="lazy"
-                  />
-                ) : (
-                  <Image
-                    src={url}
-                    alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
-                    width={400}
-                    height={400}
-                    className={styles.image}
-                    loading="lazy"
-                  />
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        <div className={styles.content}>
-          {isMainPage && (
-            <>
-              {mainpageCardHeader()}
-              {doodle.text && (
-                <div className={styles.text}>
-                  {doodle.text.replaceAll('\n', ' / ').replaceAll(new RegExp(`\\s*${serverHashtag}`, 'g'), '').trim()}
-                </div>
+    <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
+      <div className={`${styles.imageContainer} ${isHero ? styles.heroImageContainer : ''} ${hasMultipleImages ? styles.multiImageContainer : ''}`}>
+        {doodle.imageUrls.map((url, index) => (
+          <Link
+            key={index}
+            href={getImageLink(index)}
+            className={styles.imageLink}
+          >
+            <div className={`${styles.imageWrapper} ${hasMultipleImages ? styles.multiImageWrapper : ''}`}>
+              {isHero ? (
+                <Image
+                  src={url}
+                  alt={`Doodle by @${doodle.authorHandle}`}
+                  width={700}
+                  height={0}
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                  }}
+                  className={styles.image}
+                  loading="lazy"
+                />
+              ) : (
+                <Image
+                  src={url}
+                  alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
+                  width={400}
+                  height={400}
+                  className={styles.image}
+                  loading="lazy"
+                />
               )}
-            </>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {isMainPage && isHashtagDoodle && (
+        <div className={styles.authorBlock}>
+          <div className={styles.author}>
+            <a href={doodle.postUrl} target="_blank" rel="noopener noreferrer">
+              @{doodle.authorHandle}
+            </a>
+          </div>
+        </div>
+      )}
+
+      <Link href={getFullPostLink()} className={styles.contentLink}>
+        <div className={styles.content}>
+          {isMainPage && doodle.text && (
+            <div className={styles.text}>
+              {doodle.text.replaceAll('\n', ' / ').replaceAll(new RegExp(`\\s*${serverHashtag}`, 'g'), '').trim()}
+            </div>
           )}
           <time className={styles.date}>
             {format(new Date(doodle.createdAt), 'MMM d, yyyy')}
           </time>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

@@ -1,8 +1,14 @@
-.cardLink {
+.contentLink {
   display: block;
   text-decoration: none;
   color: inherit;
   cursor: pointer;
+}
+
+.authorBlock {
+  padding: 1.25rem 2rem 0;
+  text-align: center;
+  background: var(--card-bg);
 }
 
 .card {
@@ -42,7 +48,7 @@
   opacity: 0.7;
 }
 
-.cardLink:hover .card {
+.card:hover {
   transform: translateY(-8px);
   box-shadow:
     0 0 0 2px var(--accent-color),
@@ -229,7 +235,7 @@
   opacity: 0.7;
 }
 
-.cardLink:hover .heroCard {
+.heroCard:hover {
   transform: translateY(-12px) scale(1.02);
   box-shadow:
     0 0 0 3px var(--accent-color),
@@ -278,7 +284,7 @@
     max-width: 400px;
   }
 
-  .cardLink:hover .heroCard {
+  .heroCard:hover {
     transform: translateY(-8px) scale(1.01);
   }
 
