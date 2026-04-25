@@ -187,7 +187,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
         </header>
 
         {loading && (
-          <div className={styles.loading}>Loading doodles...</div>
+          <div className={styles.loading}>Loading...</div>
         )}
 
         {error && (
