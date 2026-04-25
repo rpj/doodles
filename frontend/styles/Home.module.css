@@ -81,9 +81,10 @@
 }
 
 .title {
-  font-size: clamp(2.625rem, 7.5vw, 5.5rem);
-  font-weight: 800;
-  letter-spacing: -0.045em;
+  font-family: 'Lato', 'Schibsted Grotesk', system-ui, sans-serif;
+  font-size: clamp(2.75rem, 8vw, 6rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
   line-height: 0.95;
   color: var(--text-color);
   margin: 0;
