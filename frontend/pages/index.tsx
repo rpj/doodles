@@ -13,9 +13,16 @@ import Link from 'next/link';
 interface HomeProps {
   serverHashtag: string;
   serverHashtagWithoutPrefix: string;
+  serverSiteTitle: string | null;
+  serverPrimaryHandle: string | null;
 }
 
-export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: HomeProps) {
+export default function Home({
+  serverHashtag,
+  serverHashtagWithoutPrefix,
+  serverSiteTitle,
+  serverPrimaryHandle,
+}: HomeProps) {
   const [doodles, setDoodles] = useState<DoodlePost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +33,8 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
   const [hashtag, setHashtag] = useState(serverHashtag);
   const [hashtagWithoutPrefix, setHashtagWithoutPrefix] = useState(serverHashtagWithoutPrefix);
   const [hasHandlesToWatch, setHasHandlesToWatch] = useState(false);
+  const [siteTitle, setSiteTitle] = useState<string | null>(serverSiteTitle);
+  const [primaryHandle, setPrimaryHandle] = useState<string | null>(serverPrimaryHandle);
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
@@ -102,6 +111,8 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
         setHashtag(config.hashtag);
         setHashtagWithoutPrefix(config.hashtagWithoutPrefix);
         setHasHandlesToWatch(config.hasHandlesToWatch || false);
+        setSiteTitle(config.siteTitle ?? null);
+        setPrimaryHandle(config.primaryHandle ?? null);
       }
     } catch (err) {
       console.error('Error fetching config:', err);
@@ -112,27 +123,53 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
   let dispDomain = typeof window !== 'undefined' ? window.location.host : '';
   dispDomain = dispDomain.slice(0, 1).toUpperCase() + dispDomain.slice(1);
   const isHashtagDoodle = hashtag.indexOf('DailyDoodle') !== -1;
+  const displayTitle = siteTitle || (isHashtagDoodle ? 'All The Doodles' : hashtag);
 
   function subHead() {
-    if (!isHashtagDoodle) {
+    if (isHashtagDoodle) {
+      return <>
+        <p className={styles.subtitle} suppressHydrationWarning>
+            All <span className={styles.small}>(SFW)</span> <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}`} target="_blank">{hashtag}</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
+            <span className={styles.lighter}>Updated every few minutes</span><br/>
+            <span className={styles.gotoHandle}>{dispDomain}/&lt;your-Bluesky-handle&gt;</span> for yours!<br/>
+            <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev&apos;s doodles</a>
+          </p>
+      </>;
+    }
+
+    if (!primaryHandle) {
       return <></>;
     }
 
-    return <>
-      <p className={styles.subtitle} suppressHydrationWarning>
-          All <span className={styles.small}>(SFW)</span> <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}`} target="_blank">{hashtag}</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
-          <span className={styles.lighter}>Updated every few minutes</span><br/>
-          <span className={styles.gotoHandle}>{dispDomain}/&lt;your-Bluesky-handle&gt;</span> for yours!<br/>
-          <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev&apos;s doodles</a>
-        </p>
-    </>;
+    return (
+      <p className={styles.subtitle}>
+        Generated automatically from{' '}
+        <a
+          href={`https://bsky.app/profile/${primaryHandle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.subtitleLink}
+        >
+          @{primaryHandle}
+        </a>
+        {' '}posts tagged with{' '}
+        <a
+          href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.subtitleLink}
+        >
+          {hashtag}
+        </a>
+      </p>
+    );
   }
 
 
   return (
     <>
       <Head>
-        <title>{isHashtagDoodle ? 'All The Doodles' : hashtag}</title>
+        <title>{displayTitle}</title>
         <meta name="description" content={`All ${hashtag}s on Bluesky`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -181,7 +218,7 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
         
         <header className={styles.header}>
           <h1 className={styles.title}>
-            <Link href="/">{isHashtagDoodle ? 'All The Doodles' : hashtag}</Link>
+            <Link href="/">{displayTitle}</Link>
           </h1>
           {subHead()}
         </header>
@@ -234,10 +271,19 @@ export async function getServerSideProps() {
   }
   const hashtagWithoutPrefix = hashtag.substring(1);
 
+  const handles = (process.env.HANDLES_TO_WATCH || '')
+    .split(',')
+    .map(h => h.trim())
+    .filter(Boolean);
+  const primaryHandle = handles[0] || null;
+  const siteTitle = (process.env.SITE_TITLE && process.env.SITE_TITLE.trim()) || null;
+
   return {
     props: {
       serverHashtag: hashtag,
       serverHashtagWithoutPrefix: hashtagWithoutPrefix,
+      serverSiteTitle: siteTitle,
+      serverPrimaryHandle: primaryHandle,
     },
   };
 }

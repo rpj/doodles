@@ -1,6 +1,6 @@
 .main {
   min-height: 100vh;
-  padding: clamp(3rem, 6vw, 5rem) clamp(1.5rem, 4vw, 3rem) 4rem;
+  padding: 1.5rem clamp(1.5rem, 4vw, 3rem) 4rem;
   max-width: 1280px;
   margin: 0 auto;
 }
@@ -76,7 +76,7 @@
 /* Header / wordmark */
 .header {
   text-align: center;
-  padding: clamp(2.5rem, 7vw, 5.5rem) 0 clamp(2.5rem, 6vw, 4.5rem);
+  padding: clamp(1.5rem, 3vw, 2.5rem) 0 clamp(2.5rem, 6vw, 4.5rem);
   position: relative;
 }
 
@@ -115,7 +115,7 @@
   font-size: 0.9375rem;
   font-weight: 400;
   color: var(--text-muted);
-  max-width: 540px;
+  max-width: 760px;
   margin: 1.5rem auto 0;
   line-height: 1.65;
 }
@@ -129,6 +129,11 @@
 .subtitle a:hover {
   color: var(--accent-color);
   border-bottom-color: var(--accent-color);
+}
+
+/* Keep handle / hashtag tokens unbroken across line wraps */
+.subtitleLink {
+  white-space: nowrap;
 }
 
 .small {
@@ -257,7 +262,7 @@
   }
 
   .header {
-    padding: 2rem 0 2.5rem;
+    padding: 1rem 0 2.5rem;
   }
 
   .grid {

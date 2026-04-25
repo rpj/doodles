@@ -111,6 +111,8 @@ npx ts-node moderation.ts <postId> --delete
 - `REDIS_URL` - Redis connection string (default: `redis://localhost:6379`)
 - `DOODLE_POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
 - `HASHTAG_TO_WATCH` - Hashtag to monitor (default: `#DailyDoodle`). Include the # prefix.
+- `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit the collection to. Used to drive the "Generated automatically from @handle" subtitle on the gallery (the first handle in the list).
+- `SITE_TITLE` - Human-readable wordmark for the gallery masthead (e.g. `Ryan's Watches`). Falls back to the hashtag itself when unset.
 - `PORT` - Frontend server port (default: 3000)
 
 ### User Filter Management

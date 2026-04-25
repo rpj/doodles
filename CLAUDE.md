@@ -76,6 +76,8 @@ Art Deco-inspired black/white design with metallic silver accents. Uses CSS cust
 - `REDIS_URL` - Redis connection string (defaults to redis://localhost:6379)
 - `DOODLE_POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
 - `HASHTAG_TO_WATCH` - The hashtag to monitor (default: #DailyDoodle). Include the # prefix.
+- `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit collection. The first handle drives the gallery subtitle on non-doodle deployments.
+- `SITE_TITLE` - Human-readable wordmark for the gallery masthead. Falls back to the hashtag when unset.
 - `PORT` - Frontend server port (default: 3000)
 
 ### Filter Configuration

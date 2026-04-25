@@ -21,5 +21,6 @@ services:
       - PORT=${PORT:-3000}
       - HASHTAG_TO_WATCH=${HASHTAG_TO_WATCH}
       - HANDLES_TO_WATCH=${HANDLES_TO_WATCH}
+      - SITE_TITLE=${SITE_TITLE}
     restart: unless-stopped
 
