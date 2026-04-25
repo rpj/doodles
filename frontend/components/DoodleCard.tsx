@@ -13,15 +13,17 @@ interface DoodleCardProps {
   customUsers?: string[]; // List of custom users for routing decisions on main page
   isHashtagDoodle?: boolean; // Whether this post is part of the "doodle" hashtag feed or a custom one
   serverHashtag: string; // The server-configured hashtag (with # prefix)
+  priority?: boolean; // Mark the first image as LCP-priority for above-the-fold cards
 }
 
 export default function DoodleCard({
-  doodle, 
-  isHero = false, 
-  userHandle, 
-  customUsers = [], 
+  doodle,
+  isHero = false,
+  userHandle,
+  customUsers = [],
   isHashtagDoodle = false,
   serverHashtag,
+  priority = false,
 }: DoodleCardProps) {
   const postId = getPostIdFromUri(doodle.uri);
   const isMainPage = !userHandle; // If no userHandle context, we're on the main page
@@ -63,39 +65,44 @@ export default function DoodleCard({
   return (
     <div className={`${styles.card} ${isHero ? styles.heroCard : ''}`}>
       <div className={`${styles.imageContainer} ${isHero ? styles.heroImageContainer : ''} ${hasMultipleImages ? styles.multiImageContainer : ''}`}>
-        {doodle.imageUrls.map((url, index) => (
-          <Link
-            key={index}
-            href={getImageLink(index)}
-            className={styles.imageLink}
-          >
-            <div className={`${styles.imageWrapper} ${hasMultipleImages ? styles.multiImageWrapper : ''}`}>
-              {isHero ? (
-                <Image
-                  src={url}
-                  alt={`Doodle by @${doodle.authorHandle}`}
-                  width={700}
-                  height={0}
-                  style={{
-                    width: '100%',
-                    height: 'auto',
-                  }}
-                  className={styles.image}
-                  loading="lazy"
-                />
-              ) : (
-                <Image
-                  src={url}
-                  alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
-                  width={400}
-                  height={400}
-                  className={styles.image}
-                  loading="lazy"
-                />
-              )}
-            </div>
-          </Link>
-        ))}
+        {doodle.imageUrls.map((url, index) => {
+          const loadingMode = priority && index === 0
+            ? { priority: true as const }
+            : { loading: 'lazy' as const };
+          return (
+            <Link
+              key={index}
+              href={getImageLink(index)}
+              className={styles.imageLink}
+            >
+              <div className={`${styles.imageWrapper} ${hasMultipleImages ? styles.multiImageWrapper : ''}`}>
+                {isHero ? (
+                  <Image
+                    src={url}
+                    alt={`Doodle by @${doodle.authorHandle}`}
+                    width={700}
+                    height={0}
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                    }}
+                    className={styles.image}
+                    {...loadingMode}
+                  />
+                ) : (
+                  <Image
+                    src={url}
+                    alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
+                    width={400}
+                    height={400}
+                    className={styles.image}
+                    {...loadingMode}
+                  />
+                )}
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {isMainPage && isHashtagDoodle && (

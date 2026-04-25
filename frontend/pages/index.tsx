@@ -203,13 +203,14 @@ export default function Home({ serverHashtag, serverHashtagWithoutPrefix }: Home
         {!loading && !error && doodles.length > 0 && (
           <>
             <div className={styles.grid}>
-              {doodles.map((doodle) => (
-                <DoodleCard 
-                  key={doodle.uri} 
-                  doodle={doodle} 
+              {doodles.map((doodle, index) => (
+                <DoodleCard
+                  key={doodle.uri}
+                  doodle={doodle}
                   customUsers={customUsers}
                   isHashtagDoodle={isHashtagDoodle}
                   serverHashtag={serverHashtag}
+                  priority={index === 0}
                 />
               ))}
             </div>
