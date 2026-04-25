@@ -14,9 +14,6 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV SITE_TITLE "Ryan's Watches"
-
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -24,6 +21,8 @@ COPY --from=builder /app /app
 
 EXPOSE 3000 3001
 
-ENV PORT 3000
+ENV PORT=3000
+ENV NODE_ENV=production
+ENV SITE_TITLE="Ryan's Watches"
 
 CMD ["sh", "-c", "npm start -- -p $PORT"]
