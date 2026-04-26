@@ -143,16 +143,8 @@ export default function Home({
 
     return (
       <p className={styles.subtitle}>
-        Generated automatically from{' '}
-        <a
-          href={`https://bsky.app/profile/${primaryHandle}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.subtitleLink}
-        >
-          @{primaryHandle}
-        </a>
-        {' '}posts tagged with{' '}
+        An automatically-generated view of
+        posts tagged with{' '}
         <a
           href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}`}
           target="_blank"
@@ -161,6 +153,15 @@ export default function Home({
         >
           {hashtag}
         </a>
+        {' '} from{' '}
+        <a
+          href={`https://bsky.app/profile/${primaryHandle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.subtitleLink}
+        >
+          @{primaryHandle}
+        </a>.
       </p>
     );
   }
