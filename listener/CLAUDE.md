@@ -17,6 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run start` - Start the main listener service
 - `npm run backfill` - Import hardcoded list of existing doodle posts
 - `npm run backfill-facets` - Re-fetch Bluesky `facets` for legacy posts so the post page can render full URLs / clickable hashtags / mentions. Idempotent; supports `--dry-run` and `--force`.
+- `npm run classify-existing` - Walk every stored post chronologically and run the watch classifier (see `watch-classifier/`) to populate `__doodles:watch-meta` and `__doodles:watch-canonical`. Idempotent; supports `--dry-run` and `--force`. Requires the `claude` CLI on PATH.
+- `npm run watch-stats` - Read-only summary of classifier output (totals, by-brand counts, low-confidence list with `--low-confidence`, "other" entries with `--list-other`).
 
 ### Frontend
 - `npm run dev` - Development server (default port 3000, configurable via PORT)

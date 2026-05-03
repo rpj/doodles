@@ -2,6 +2,7 @@ import { AtpAgent, ComAtprotoServerCreateSession, AtpSessionEvent, AtpSessionDat
 import { input } from '@inquirer/prompts';
 import { Redis } from 'ioredis';
 import { writeFile } from 'fs/promises';
+import { classifyAndRecord, getBasePostId } from './classify-post';
 
 const IDENT = process.env.BLUESKY_IDENT;
 const START_TS = Date.now();
@@ -309,9 +310,28 @@ async function processPost(
     
     console.log(`Added doodle ${i + 1}/${imageUrls.length} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
   }
-  
+
   // Also mark the original post URI as processed
   await redis.sadd(processedUrisKey, post.uri);
+
+  // Run the watch classifier inline. Fail-soft: if claude is unavailable,
+  // logs a warning and continues without blocking the listener.
+  const basePostId = getBasePostId(post.uri);
+  if (basePostId) {
+    try {
+      const meta = await classifyAndRecord(redis, {
+        basePostId,
+        text: postText,
+        facets: (post.record as any)?.facets,
+      });
+      if (meta) {
+        const tag = meta.brand ? ` ${meta.brand} ${meta.model ?? ''}`.trim() : '';
+        console.log(`Classified ${basePostId} as ${meta.kind}${tag ? ' —' + tag : ''} (conf ${meta.confidence.toFixed(2)})`);
+      }
+    } catch (e) {
+      console.warn(`Watch classification failed for ${basePostId}: ${(e as Error).message}`);
+    }
+  }
 }
 
 async function agentSessionWasRefreshed(redis: Redis, sessionPrefix: string, event: AtpSessionEvent, session: AtpSessionData | undefined) {

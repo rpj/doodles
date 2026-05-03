@@ -87,6 +87,32 @@ the stored DoodlePost record. Idempotent (only fetches posts missing the
 field); add `--force` to re-fetch unconditionally; add `--dry-run` to
 preview without writing.
 
+**Watch classifier (`watch-classifier/SKILL.md`):**
+
+Each post the listener stores is also fed through a Claude-powered
+classifier that decides whether the post is a unique watch, a follow-on
+("band upgrade", "wearing it again"), a family/collection shot, an event
+post, or other; and extracts brand + model. Used to deduplicate fuzzy
+plain-text descriptions for the upcoming stats / by-brand filter UI.
+
+The skill lives at `listener/watch-classifier/SKILL.md` (version-controlled
+in this repo) and is also symlinked from `~/.claude/skills/watch-classifier`
+for interactive use. The listener calls `claude -p` non-interactively at
+post-processing time and stores results in three Redis keys:
+
+- `__doodles:watch-meta` — Hash, basePostId → JSON `{kind, brand, model, references_post_id, confidence, classified_at}`.
+- `__doodles:watch-canonical` — List, oldest first, JSON `{post_id, brand, model}` for each unique watch. Drives the canonical-list context the classifier sees on subsequent posts (so post N+1 can be matched against post N's identified watches).
+- `__doodles:watch-overrides` — Hash, basePostId → JSON (same shape as `watch-meta`). Manual corrections — when the classifier mis-identifies a watch, set an override and re-run; the override is honored ahead of any LLM result. Example:
+
+  ```bash
+  redis-cli HSET __doodles:watch-overrides 3mxxxxxx \
+    '{"kind":"unique-watch","brand":"Tudor","model":"Black Bay 58","references_post_id":null,"confidence":1,"classified_at":"2026-04-25T00:00:00Z"}'
+  ```
+
+Bootstrap the classification for legacy posts with `cd listener && npm run classify-existing`. Inspect the output with `npm run watch-stats` (add `--low-confidence` to spot-check entries that need manual review).
+
+Failure mode is fail-soft: if the `claude` CLI isn't available in the listener's environment (e.g. the Docker container without Claude Code installed), classification logs a warning and the listener keeps storing posts as before.
+
 ### Tools (./tools/)
 ```bash
 # Query specific post data
