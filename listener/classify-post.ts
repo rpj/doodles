@@ -55,7 +55,7 @@ export const META_KEY = '__doodles:watch-meta';
 export const CANONICAL_KEY = '__doodles:watch-canonical';
 export const OVERRIDES_KEY = '__doodles:watch-overrides';
 
-const DEFAULT_MODEL = 'haiku';
+const DEFAULT_MODEL = 'sonnet';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const VALID_KINDS: ReadonlySet<WatchKind> = new Set([
   'unique-watch',
