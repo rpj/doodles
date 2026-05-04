@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getPostById, getFullPostById, DoodlePost } from '../../lib/redis';
+import { getPostById, getFullPostById, getWatchMeta, DoodlePost, WatchMeta } from '../../lib/redis';
 import { useTheme } from '../../contexts/ThemeContext';
 import styles from '../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../lib/utils';
@@ -14,9 +14,10 @@ interface PostPageProps {
   post: DoodlePost | null;
   backUrl: string;
   hashtagWithoutPrefix: string;
+  watchMeta: WatchMeta | null;
 }
 
-export default function PostPage({ post, backUrl, hashtagWithoutPrefix }: PostPageProps) {
+export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const isHashtagDoodle = hashtagWithoutPrefix.indexOf('DailyDoodle') !== -1;
@@ -137,7 +138,15 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix }: PostPa
                 <time className={styles.date}>
                   {mounted ? format(new Date(post.createdAt), 'EEEE, MMMM d, yyyy') : ''}
                 </time>
-                <a 
+                {watchMeta?.kind === 'follow-on' && watchMeta.references_post_id && (
+                  <Link
+                    href={`/post/${encodeURIComponent(watchMeta.references_post_id)}?ref=${encodeURIComponent(backUrl)}`}
+                    className={styles.originalLink}
+                  >
+                    First appeared →
+                  </Link>
+                )}
+                <a
                   href={post.postUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -176,11 +185,15 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       ? await getPostById(decodedId)
       : await getFullPostById(decodedId);
 
+    const basePostId = decodedId.split('#')[0];
+    const watchMeta = post ? await getWatchMeta(basePostId) : null;
+
     return {
       props: {
         post: post || null,
         backUrl: ref ? decodeURIComponent(ref as string) : '/',
         hashtagWithoutPrefix,
+        watchMeta,
       },
     };
   } catch (error) {
@@ -190,6 +203,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         post: null,
         backUrl: '/',
         hashtagWithoutPrefix,
+        watchMeta: null,
       },
     };
   }

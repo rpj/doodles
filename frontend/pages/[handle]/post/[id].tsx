@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getPostById, getFullPostById, DoodlePost } from '../../../lib/redis';
+import { getPostById, getFullPostById, getWatchMeta, DoodlePost, WatchMeta } from '../../../lib/redis';
 import { useTheme } from '../../../contexts/ThemeContext';
 import styles from '../../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../../lib/utils';
@@ -15,9 +15,10 @@ interface PostPageProps {
   handle: string;
   hashtagWithoutPrefix: string;
   numHandlesToWatch: number;
+  watchMeta: WatchMeta | null;
 }
 
-export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch }: PostPageProps) {
+export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const isHashtagDoodle = hashtagWithoutPrefix?.indexOf('DailyDoodle') !== -1;
@@ -185,7 +186,15 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
                 <time className={styles.date}>
                   {mounted ? format(new Date(post.createdAt), 'EEEE, MMMM d, yyyy') : ''}
                 </time>
-                <a 
+                {watchMeta?.kind === 'follow-on' && watchMeta.references_post_id && (
+                  <Link
+                    href={`/${handle}/post/${encodeURIComponent(watchMeta.references_post_id)}`}
+                    className={styles.originalLink}
+                  >
+                    First appeared →
+                  </Link>
+                )}
+                <a
                   href={post.postUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -225,12 +234,16 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       ? await getPostById(decodedId, handle as string)
       : await getFullPostById(decodedId, handle as string);
 
+    const basePostId = decodedId.split('#')[0];
+    const watchMeta = post ? await getWatchMeta(basePostId) : null;
+
     return {
       props: {
         post: post || null,
         handle: handle as string,
         hashtagWithoutPrefix,
         numHandlesToWatch,
+        watchMeta,
       },
     };
   } catch (error) {
@@ -241,6 +254,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         handle: handle as string,
         hashtagWithoutPrefix: null,
         numHandlesToWatch: 0,
+        watchMeta: null,
       },
     };
   }
