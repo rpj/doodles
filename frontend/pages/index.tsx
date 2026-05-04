@@ -146,28 +146,7 @@ export default function Home({
     }
   }
 
-  let dispDomain = typeof window !== 'undefined' ? window.location.host : '';
-  dispDomain = dispDomain.slice(0, 1).toUpperCase() + dispDomain.slice(1);
-  const isHashtagDoodle = hashtag.indexOf('DailyDoodle') !== -1;
-  const displayTitle = siteTitle || (isHashtagDoodle ? 'All The Doodles' : hashtag);
-
-  function subHead() {
-    if (isHashtagDoodle) {
-      return <>
-        <p className={styles.subtitle} suppressHydrationWarning>
-            All <span className={styles.small}>(SFW)</span> <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}`} target="_blank">{hashtag}</a>s on <a href="https://bsky.app" target="_blank">Bluesky</a><br/>
-            <span className={styles.lighter}>Updated every few minutes</span><br/>
-            <span className={styles.gotoHandle}>{dispDomain}/&lt;your-Bluesky-handle&gt;</span> for yours!<br/>
-            <a href="/ryanjoseph.dev" className={styles.userLink}>View only @ryanjoseph.dev&apos;s doodles</a>
-          </p>
-      </>;
-    }
-
-    // Non-doodle deployments: no subtitle. The Stats strip below
-    // provides the attribution context.
-    return null;
-  }
-
+  const displayTitle = siteTitle || hashtag;
 
   return (
     <>
@@ -223,7 +202,6 @@ export default function Home({
           <h1 className={styles.title}>
             <Link href="/">{displayTitle}</Link>
           </h1>
-          {subHead()}
           <Stats stats={stats} activeBrand={activeBrand} basePath="/" />
         </header>
 
@@ -249,7 +227,6 @@ export default function Home({
                   key={doodle.uri}
                   doodle={doodle}
                   customUsers={customUsers}
-                  isHashtagDoodle={isHashtagDoodle}
                   serverHashtag={serverHashtag}
                   priority={index === 0}
                 />
@@ -268,8 +245,10 @@ export default function Home({
 
 // Force server-side rendering to avoid static generation issues with window access
 export async function getServerSideProps() {
-  // Get hashtag from env var, ensure it has # prefix
-  let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+  if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
+    throw new Error('HASHTAG_TO_WATCH must be set');
+  }
+  let hashtag = process.env.HASHTAG_TO_WATCH.trim();
   if (!hashtag.startsWith('#')) {
     hashtag = '#' + hashtag;
   }

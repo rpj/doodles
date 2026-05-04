@@ -11,7 +11,6 @@ interface DoodleCardProps {
   isHero?: boolean;
   userHandle?: string; // The handle context for routing (undefined for main page)
   customUsers?: string[]; // List of custom users for routing decisions on main page
-  isHashtagDoodle?: boolean; // Whether this post is part of the "doodle" hashtag feed or a custom one
   serverHashtag: string; // The server-configured hashtag (with # prefix)
   priority?: boolean; // Mark the first image as LCP-priority for above-the-fold cards
 }
@@ -21,7 +20,6 @@ export default function DoodleCard({
   isHero = false,
   userHandle,
   customUsers = [],
-  isHashtagDoodle = false,
   serverHashtag,
   priority = false,
 }: DoodleCardProps) {
@@ -96,7 +94,7 @@ export default function DoodleCard({
                 ) : (
                   <Image
                     src={url}
-                    alt={`${isHashtagDoodle ? 'Doodle' : 'Post'} by @${doodle.authorHandle}`}
+                    alt={`Post by @${doodle.authorHandle}`}
                     width={600}
                     height={600}
                     className={styles.image}
@@ -116,13 +114,6 @@ export default function DoodleCard({
       </div>
 
       <div className={styles.meta}>
-        {isMainPage && isHashtagDoodle && (
-          <div className={styles.author}>
-            <a href={doodle.postUrl} target="_blank" rel="noopener noreferrer">
-              @{doodle.authorHandle}
-            </a>
-          </div>
-        )}
         <Link href={getFullPostLink()} className={styles.titleLink}>
           {cleanedText && (
             <h3 className={styles.title}>{cleanedText}</h3>

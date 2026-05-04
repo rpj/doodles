@@ -20,12 +20,10 @@ interface PostPageProps {
 export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const isHashtagDoodle = hashtagWithoutPrefix.indexOf('DailyDoodle') !== -1;
 
   // Determine back link text based on URL
   const isMainPage = backUrl === '/';
-  const postTypeStr = isHashtagDoodle ? 'doodle' : 'post';
-  const backLinkText = (isMainPage ? 'Back to all' : 'Back to') + postTypeStr;
+  const backLinkText = (isMainPage ? 'Back to all posts' : 'Back to post');
 
   // Check if this is a multi-image view (no #image suffix in URI)
   const hasMultipleImages = post && post.imageUrls.length > 1;
@@ -59,11 +57,6 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
 
   function title() {
     const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
-    
-    if (isHashtagDoodle) {
-      return `Daily Doodle - ${date}`;
-    }
-
     return post?.text.split('\n')[0] || date;
   }
 
@@ -71,7 +64,7 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
     <>
       <Head>
         <title>{title()}</title>
-        <meta name="description" content={`A ${isHashtagDoodle ? 'doodle' : `#${hashtagWithoutPrefix} post`} from ${post.authorDisplayName}`} />
+        <meta name="description" content={`A #${hashtagWithoutPrefix} post from ${post.authorDisplayName}`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -106,7 +99,7 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
                 const ImageContent = (
                   <Image
                     src={url}
-                    alt={`${postTypeStr.charAt(0).toUpperCase() + postTypeStr.slice(1)} by @${post.authorHandle}`}
+                    alt={`Post by @${post.authorHandle}`}
                     width={800}
                     height={800}
                     className={styles.image}
@@ -167,8 +160,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params!;
   const { ref } = context.query;
 
-  // Get hashtag from env var, ensure it has # prefix
-  let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+  if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
+    throw new Error('HASHTAG_TO_WATCH must be set');
+  }
+  let hashtag = process.env.HASHTAG_TO_WATCH.trim();
   if (!hashtag.startsWith('#')) {
     hashtag = '#' + hashtag;
   }

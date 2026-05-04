@@ -28,7 +28,6 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
   const router = useRouter();
   const { handle } = router.query;
   const handleStr = serverHandle || (Array.isArray(handle) ? handle[0] : handle);
-  const isHashtagDoodle = hashtag.indexOf('DailyDoodle') !== -1;
 
   // Update current page from URL query parameter
   useEffect(() => {
@@ -96,51 +95,28 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
     }
   }
 
-  const isRyan = handleStr === 'ryanjoseph.dev';
   const handleShort = handleStr?.replace('.bsky.social', '') ?? '';
 
   function title() {
-    if (isHashtagDoodle) {
-      return isRyan ? 'Daily Doodles' : (handleStr ? `${handleShort}'s Daily Doodles` : 'Daily Doodles');
-    }
-
     return handleStr ? `@${handleStr}` : serverHashtag;
-  }
-
-  function subtitle() {
-    if (isHashtagDoodle) {
-      return isRyan ? (
-        <>
-          <a href="https://ryanjoseph.dev" target="_blank">I've</a> been trying to draw a "doodle a day" both as a respite and to improve my skills.<br /><br />
-          If they're not awful, I'll <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}?author=ryanjoseph.dev`} target="_blank">post them</a> and they'll automatically end up here.
-        </>
-      ) : (
-        <>
-          <a href={`https://bsky.app/profile/${handleStr}`} target="_blank">@{handleStr}</a>'s&nbsp;
-          <a href={`https://bsky.app/hashtag/${hashtagWithoutPrefix.toLowerCase()}?author=${handleStr}`} target="_blank">{hashtag}</a>s
-        </>
-      );
-    }
-
-    return ``;
   }
 
   return (
     <>
       <Head>
         <title>{title()}</title>
-        <meta name="description" content={isRyan ? "@ryanjoseph.dev's collection of daily doodles from Bluesky" : handleStr ? `${handleShort}'s ${hashtag} posts from Bluesky` : 'Daily doodles from Bluesky'} />
+        <meta name="description" content={handleStr ? `${handleShort}'s ${hashtag} posts from Bluesky` : `${hashtag} posts from Bluesky`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
       <main className={styles.main}>
         <div className={styles.topButtons}>
-          <Link 
+          <Link
             href="/"
             className={styles.backButton}
-            aria-label="Back to All The Doodles"
+            aria-label="Back to all posts"
           >
-            ← All {isHashtagDoodle ? 'Doodles' : 'Posts'}
+            ← All Posts
           </Link>
           <a 
             href="https://github.com/rpj/doodles"
@@ -183,9 +159,6 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
         
         <header className={styles.header}>
           <h1 className={styles.title}>{title()}</h1>
-          <p className={styles.subtitle}>
-            {subtitle()}
-          </p>
         </header>
 
         {loading && (
@@ -232,8 +205,10 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { handle } = context.params!;
 
-  // Get hashtag from env var, ensure it has # prefix
-  let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+  if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
+    throw new Error('HASHTAG_TO_WATCH must be set');
+  }
+  let hashtag = process.env.HASHTAG_TO_WATCH.trim();
   if (!hashtag.startsWith('#')) {
     hashtag = '#' + hashtag;
   }

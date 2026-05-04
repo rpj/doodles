@@ -9,8 +9,13 @@ const START_TS = Date.now();
 
 const POLLING_FREQ_SECONDS = Number.parseInt(process.env.DOODLE_POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
 
-// Get hashtag from env var, ensure it has # prefix
-let HASHTAG_TO_WATCH = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+// Hashtag to watch is required — no default. The listener has nothing to do
+// without one. Exit cleanly so the operator notices in container logs.
+if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
+  console.error('FATAL: HASHTAG_TO_WATCH must be set (e.g. HASHTAG_TO_WATCH=#YourTag).');
+  process.exit(1);
+}
+let HASHTAG_TO_WATCH = process.env.HASHTAG_TO_WATCH.trim();
 if (!HASHTAG_TO_WATCH.startsWith('#')) {
   HASHTAG_TO_WATCH = '#' + HASHTAG_TO_WATCH;
 }

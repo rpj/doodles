@@ -34,8 +34,12 @@ export const getServerSideProps: GetServerSideProps = async ({ res, query }) => 
     const doodlesData = await getDoodles(handle);
     const isAllTheDoodles = !handle;
 
-    // Get hashtag from env var, ensure it has # prefix
-    let HASHTAG_TO_WATCH = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+    if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
+      res.statusCode = 500;
+      res.end('HASHTAG_TO_WATCH must be set');
+      return { props: {} };
+    }
+    let HASHTAG_TO_WATCH = process.env.HASHTAG_TO_WATCH.trim();
     if (!HASHTAG_TO_WATCH.startsWith('#')) {
       HASHTAG_TO_WATCH = '#' + HASHTAG_TO_WATCH;
     }

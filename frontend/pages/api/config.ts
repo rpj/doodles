@@ -7,7 +7,11 @@ import { NextApiRequest, NextApiResponse } from 'next';
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+    if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
+      res.status(500).json({ error: 'HASHTAG_TO_WATCH must be set' });
+      return;
+    }
+    let hashtag = process.env.HASHTAG_TO_WATCH.trim();
     if (!hashtag.startsWith('#')) {
       hashtag = '#' + hashtag;
     }

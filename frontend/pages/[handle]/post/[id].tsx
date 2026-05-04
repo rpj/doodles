@@ -21,8 +21,6 @@ interface PostPageProps {
 export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const isHashtagDoodle = hashtagWithoutPrefix?.indexOf('DailyDoodle') !== -1;
-  const postTypeStr = isHashtagDoodle ? 'doodle' : 'post';
 
   // Check if this is a multi-image view (no #image suffix in URI)
   const hasMultipleImages = post && post.imageUrls.length > 1;
@@ -37,13 +35,13 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
     return (
       <>
         <Head>
-          <title>Post Not Found - Daily Doodles</title>
+          <title>Post Not Found</title>
         </Head>
         <main className={styles.main}>
           <div className={styles.notFound}>
             <h1>Post Not Found</h1>
             <Link href={`/${handle}`} className={styles.backLink}>
-              ← Back to @{handle}&apos;s ${postTypeStr}s
+              ← Back to @{handle}&apos;s posts
             </Link>
           </div>
         </main>
@@ -51,7 +49,6 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
     );
   }
 
-  const isRyan = handle === 'ryanjoseph.dev';
   // First line of the post text with the trigger hashtag stripped — used as
   // the back-link label on single-image post views.
   const firstLine = stripTriggerHashtag(post.text, post.facets, hashtagWithoutPrefix)
@@ -60,11 +57,6 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
 
   function title() {
     const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
-
-    if (isHashtagDoodle) {
-      return `${isRyan ? 'Daily Doodle' : `@${handle}'s Doodle`} - ${date}`;
-    }
-
     return (post?.text.split('\n')[0] || date) + (hashtagWithoutPrefix ? ` - #${hashtagWithoutPrefix}` : '');
   }
 
@@ -73,13 +65,8 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
     // on the post page since every post here matched it.
     const stripped = stripTriggerHashtag(post!.text, post!.facets, hashtagWithoutPrefix);
 
-    if (isHashtagDoodle) {
-      return <RichText text={stripped.text} facets={stripped.facets} />;
-    }
-
-    // Non-doodle deployments: lead the post page with the first line as an
-    // editorial h2, body below. Split byte-correctly so facet offsets remain
-    // valid against each segment.
+    // Lead the post page with the first line as an editorial h2, body below.
+    // Split byte-correctly so facet offsets remain valid against each segment.
     const nlByte = findFirstNewlineByte(stripped.text);
     if (nlByte < 0) {
       return <h2><RichText text={stripped.text} facets={stripped.facets} /></h2>;
@@ -93,31 +80,26 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
   }
 
   function backToContainer() {
-    if (isHashtagDoodle || hasMultipleImages) {
-      return <>
+    if (hasMultipleImages) {
+      return (
         <Link href={`/${numHandlesToWatch === 1 ? handle : ''}`} className={styles.backLink}>
-          ← Back to {
-            numHandlesToWatch === 1 ?
-              `@${handle}&apos;s ${postTypeStr}s`
-            :
-              `#${hashtagWithoutPrefix}`
-          }
+          ← Back to {numHandlesToWatch === 1 ? `@${handle}'s posts` : `#${hashtagWithoutPrefix}`}
         </Link>
-      </>;
+      );
     }
 
-    return <>
-        <Link href={`/${handle}/post/${encodeURIComponent(basePostId)}`} className={styles.backLink}>
-          ← {firstLine}
-        </Link>
-      </>;
+    return (
+      <Link href={`/${handle}/post/${encodeURIComponent(basePostId)}`} className={styles.backLink}>
+        ← {firstLine}
+      </Link>
+    );
   }
 
   return (
     <>
       <Head>
         <title>{title()}</title>
-        <meta name="description" content={`A daily ${isHashtagDoodle ? 'doodle' : `#${hashtagWithoutPrefix} post`} from ${post.authorDisplayName}`} />
+        <meta name="description" content={`A #${hashtagWithoutPrefix} post from ${post.authorDisplayName}`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
@@ -154,7 +136,7 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
                 const ImageContent = (
                   <Image
                     src={url}
-                    alt={`${postTypeStr.charAt(0).toUpperCase() + postTypeStr.slice(1)} by @${post.authorHandle}`}
+                    alt={`Post by @${post.authorHandle}`}
                     width={800}
                     height={800}
                     className={styles.image}
@@ -214,8 +196,10 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { handle, id } = context.params!;
 
-  // Get hashtag from env var, ensure it has # prefix
-  let hashtag = process.env.HASHTAG_TO_WATCH || '#DailyDoodle';
+  if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
+    throw new Error('HASHTAG_TO_WATCH must be set');
+  }
+  let hashtag = process.env.HASHTAG_TO_WATCH.trim();
   if (!hashtag.startsWith('#')) {
     hashtag = '#' + hashtag;
   }
