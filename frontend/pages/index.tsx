@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { DoodlePost, getCustomUsers, PaginatedDoodles } from '../lib/redis';
+import { DoodlePost, getCustomUsers, PaginatedDoodles, WatchStats, getWatchStats } from '../lib/redis';
 import DoodleCard from '../components/DoodleCard';
 import Pagination from '../components/Pagination';
+import Stats from '../components/Stats';
 import { useTheme } from '../contexts/ThemeContext';
 import styles from '../styles/Home.module.css';
 import Link from 'next/link';
@@ -15,6 +16,7 @@ interface HomeProps {
   serverHashtagWithoutPrefix: string;
   serverSiteTitle: string | null;
   serverPrimaryHandle: string | null;
+  serverStats: WatchStats;
 }
 
 export default function Home({
@@ -22,6 +24,7 @@ export default function Home({
   serverHashtagWithoutPrefix,
   serverSiteTitle,
   serverPrimaryHandle,
+  serverStats,
 }: HomeProps) {
   const [doodles, setDoodles] = useState<DoodlePost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +38,10 @@ export default function Home({
   const [hasHandlesToWatch, setHasHandlesToWatch] = useState(false);
   const [siteTitle, setSiteTitle] = useState<string | null>(serverSiteTitle);
   const [primaryHandle, setPrimaryHandle] = useState<string | null>(serverPrimaryHandle);
+  const [stats, setStats] = useState<WatchStats>(serverStats);
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+  const activeBrand = (router.query.brand as string | undefined) || null;
 
   // Update current page from URL query parameter
   useEffect(() => {
@@ -53,26 +58,35 @@ export default function Home({
     }
   }, [router.isReady]);
 
-  // Fetch doodles when page changes or config is loaded
+  // Fetch doodles when page / brand filter / config changes
   useEffect(() => {
     if (router.isReady) {
-      fetchDoodles(currentPage);
+      fetchDoodles(currentPage, activeBrand);
       fetchCustomUsers();
     }
-  }, [router.isReady, currentPage, hasHandlesToWatch]);
+  }, [router.isReady, currentPage, hasHandlesToWatch, activeBrand]);
 
   useEffect(() => {
     if (router.isReady) {
-      // Refresh every 5 minutes (but only current page)
-      const interval = setInterval(() => fetchDoodles(currentPage), 5 * 60 * 1000);
+      // Refresh every 5 minutes (current page + filter, plus stats)
+      const interval = setInterval(() => {
+        fetchDoodles(currentPage, activeBrand);
+        fetchStats();
+      }, 5 * 60 * 1000);
       return () => clearInterval(interval);
     }
-  }, [router.isReady, currentPage, hasHandlesToWatch]);
+  }, [router.isReady, currentPage, hasHandlesToWatch, activeBrand]);
 
-  async function fetchDoodles(page: number = 1) {
+  async function fetchDoodles(page: number = 1, brand?: string | null) {
     try {
       setLoading(true);
-      const response = await fetch(`/api/doodles?paginate=true&page=${page}&pageSize=50`);
+      const params = new URLSearchParams({
+        paginate: 'true',
+        page: String(page),
+        pageSize: '50',
+      });
+      if (brand) params.set('brand', brand);
+      const response = await fetch(`/api/doodles?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch doodles');
       }
@@ -88,6 +102,18 @@ export default function Home({
       console.error('Error fetching doodles:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchStats() {
+    try {
+      const response = await fetch('/api/watch-stats');
+      if (response.ok) {
+        const data: WatchStats = await response.json();
+        setStats(data);
+      }
+    } catch (err) {
+      console.error('Error fetching watch stats:', err);
     }
   }
 
@@ -222,6 +248,7 @@ export default function Home({
             <Link href="/">{displayTitle}</Link>
           </h1>
           {subHead()}
+          <Stats stats={stats} activeBrand={activeBrand} basePath="/" />
         </header>
 
         {loading && (
@@ -279,12 +306,25 @@ export async function getServerSideProps() {
   const primaryHandle = handles[0] || null;
   const siteTitle = (process.env.SITE_TITLE && process.env.SITE_TITLE.trim()) || null;
 
+  let serverStats: WatchStats = {
+    uniqueCount: 0,
+    brandCount: 0,
+    postCount: 0,
+    byBrand: [],
+  };
+  try {
+    serverStats = await getWatchStats();
+  } catch (e) {
+    console.error('SSR getWatchStats failed:', e);
+  }
+
   return {
     props: {
       serverHashtag: hashtag,
       serverHashtagWithoutPrefix: hashtagWithoutPrefix,
       serverSiteTitle: siteTitle,
       serverPrimaryHandle: primaryHandle,
+      serverStats,
     },
   };
 }
