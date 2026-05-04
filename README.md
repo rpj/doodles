@@ -102,16 +102,107 @@ post-processing time and stores results in three Redis keys:
 
 - `__doodles:watch-meta` — Hash, basePostId → JSON `{kind, brand, model, references_post_id, confidence, classified_at}`.
 - `__doodles:watch-canonical` — List, oldest first, JSON `{post_id, brand, model}` for each unique watch. Drives the canonical-list context the classifier sees on subsequent posts (so post N+1 can be matched against post N's identified watches).
-- `__doodles:watch-overrides` — Hash, basePostId → JSON (same shape as `watch-meta`). Manual corrections — when the classifier mis-identifies a watch, set an override and re-run; the override is honored ahead of any LLM result. Example:
-
-  ```bash
-  redis-cli HSET __doodles:watch-overrides 3mxxxxxx \
-    '{"kind":"unique-watch","brand":"Tudor","model":"Black Bay 58","references_post_id":null,"confidence":1,"classified_at":"2026-04-25T00:00:00Z"}'
-  ```
+- `__doodles:watch-overrides` — Hash, basePostId → JSON (same shape as `watch-meta`). See the "Watch classification overrides" section below.
 
 Bootstrap the classification for legacy posts with `cd listener && npm run classify-existing`. Inspect the output with `npm run watch-stats` (add `--low-confidence` to spot-check entries that need manual review).
 
 Failure mode is fail-soft: if the `claude` CLI isn't available in the listener's environment (e.g. the Docker container without Claude Code installed), classification logs a warning and the listener keeps storing posts as before.
+
+### Watch Classification Overrides
+
+The classifier is good but not perfect — it's classifying fuzzy plain-text
+prose. When it gets a post wrong, set a manual override. Overrides take
+precedence over the LLM's output and persist across re-classifications.
+
+**Storage:** `__doodles:watch-overrides` — Redis hash. Field is the base
+post ID (the last segment of a Bluesky post URL, no `#image` suffix).
+Value is a JSON blob with the same shape as `__doodles:watch-meta`:
+
+```json
+{
+  "kind": "unique-watch" | "follow-on" | "family" | "event" | "other",
+  "brand": "Tudor" | null,
+  "model": "Black Bay 58" | null,
+  "references_post_id": "3mxxxxxx" | null,
+  "confidence": 1.0,
+  "classified_at": "2026-04-25T00:00:00Z"
+}
+```
+
+`brand` and `model` are required when `kind` is `unique-watch` or
+`follow-on`; null otherwise. `references_post_id` is required when `kind`
+is `follow-on` (the base post ID of the canonical entry it follows up on);
+null otherwise. `confidence` and `classified_at` are stamped by the
+classifier; for hand-written overrides set `confidence: 1.0` and any
+ISO-8601 timestamp.
+
+**Set an override:**
+
+```bash
+# Mark a misclassified family post as event
+redis-cli HSET __doodles:watch-overrides 3mkvhoxbbi22a '{
+  "kind": "event",
+  "brand": null,
+  "model": null,
+  "references_post_id": null,
+  "confidence": 1.0,
+  "classified_at": "2026-04-25T00:00:00Z"
+}'
+
+# Mark a misidentified follow-on as a new unique watch (variant of an
+# existing canonical brand+line)
+redis-cli HSET __doodles:watch-overrides 3mkxuccaxkc2j '{
+  "kind": "unique-watch",
+  "brand": "Brew",
+  "model": "Metric PVD Black",
+  "references_post_id": null,
+  "confidence": 1.0,
+  "classified_at": "2026-04-25T00:00:00Z"
+}'
+```
+
+**Apply overrides:** an override sits dormant in Redis until the next
+`classifyAndRecord` call — which only runs for new posts. To replay
+overrides against the existing data:
+
+```bash
+cd listener
+npm run apply-overrides
+```
+
+`apply-overrides` does two things, both pure-Redis (no Claude calls):
+
+1. Copies every entry in `__doodles:watch-overrides` into
+   `__doodles:watch-meta`, overwriting the classifier's prior output for
+   those posts.
+2. Rebuilds `__doodles:watch-canonical` from scratch — walks
+   `all-doodles:posts` chronologically and re-derives the canonical list
+   from the (now-overridden) meta. So a post previously classified as a
+   canonical that's been overridden to `event` no longer appears in the
+   canonical list, and a post overridden to `unique-watch` now does.
+
+Run `npm run apply-overrides -- --dry-run` first if you want to preview.
+
+**View, list, remove overrides:**
+
+```bash
+# All overrides
+redis-cli HGETALL __doodles:watch-overrides
+
+# A specific one
+redis-cli HGET __doodles:watch-overrides 3mkvhoxbbi22a
+
+# Remove (then re-run apply-overrides to revert that post to the
+# classifier's output, OR run classify-existing -- --force to re-classify
+# from scratch with the latest SKILL.md rules)
+redis-cli HDEL __doodles:watch-overrides 3mkvhoxbbi22a
+```
+
+**When to override vs re-classify:** if it's a one-off the LLM got wrong,
+override. If you've tightened the SKILL.md rules and want to see the new
+output across the board, run `npm run classify-existing -- --force` — that
+re-classifies every post from scratch (overrides remain in effect; they're
+checked first on every classify call).
 
 ### Tools (./tools/)
 ```bash

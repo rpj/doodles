@@ -7,6 +7,7 @@
     "backfill": "npx ts-node backfill.ts",
     "backfill-facets": "npx ts-node backfill-facets.ts",
     "classify-existing": "npx ts-node classify-existing.ts",
+    "apply-overrides": "npx ts-node apply-overrides.ts",
     "watch-stats": "npx ts-node watch-stats.ts",
     "clear-redis": "npx ts-node clear-redis.ts"
   },
