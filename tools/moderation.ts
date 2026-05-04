@@ -12,10 +12,17 @@ type Post = {
   postUrl: string,
 };
 
-// No longer need multiple prefixes - everything is in all-posts
+// No longer need multiple prefixes - everything is in all-doodles (the
+// 'doodles' is historical naming kept verbatim, see decision in repo README)
 function getPrefix(): string {
-  return 'all-posts';
+  return 'all-doodles';
 }
+
+// Watch-classifier hashes / list — also historical 'doodles' naming
+const WATCH_META_KEY = '__doodles:watch-meta';
+const WATCH_CANONICAL_KEY = '__doodles:watch-canonical';
+const WATCH_OVERRIDES_KEY = '__doodles:watch-overrides';
+const HERO_OVERRIDES_KEY = '__doodles:hero-overrides';
 
 async function findPostInRedis(redis: Redis, postId: string): Promise<Post[]> {
   const prefix = getPrefix();
@@ -141,8 +148,82 @@ async function deletePostFromRedis(redis: Redis, postId: string, imageNumber?: n
     
     console.log(`Removed ${urisToRemove.length} posts`);
   }
-  
+
   console.log(`Total posts deleted: ${totalDeleted}`);
+
+  // Watch classification is per-base-post; only purge it when we're deleting
+  // the entire post (not a single image variant). For partial deletes the
+  // remaining images of the post still need the classification.
+  if (totalDeleted > 0 && imageNumber === undefined) {
+    await deleteClassificationData(redis, postId);
+  }
+}
+
+/**
+ * Remove every watch-classification trace of a base post ID:
+ *   __doodles:watch-meta        (HDEL field)
+ *   __doodles:watch-overrides   (HDEL field)
+ *   __doodles:hero-overrides    (HDEL field)
+ *   __doodles:watch-canonical   (LREM matching JSON entry)
+ *
+ * Also warns if any follow-on entries still reference the deleted post —
+ * their "First appeared →" links will 404 until re-classified or overridden.
+ */
+async function deleteClassificationData(redis: Redis, postId: string): Promise<void> {
+  console.log(`\nCleaning up watch-classifier entries for ${postId}...`);
+
+  const metaDeleted = await redis.hdel(WATCH_META_KEY, postId);
+  if (metaDeleted) console.log(`  Removed ${WATCH_META_KEY}[${postId}]`);
+
+  const overrideDeleted = await redis.hdel(WATCH_OVERRIDES_KEY, postId);
+  if (overrideDeleted) console.log(`  Removed ${WATCH_OVERRIDES_KEY}[${postId}]`);
+
+  const heroDeleted = await redis.hdel(HERO_OVERRIDES_KEY, postId);
+  if (heroDeleted) console.log(`  Removed ${HERO_OVERRIDES_KEY}[${postId}]`);
+
+  // Canonical list: scan, find matching entry by post_id, LREM it.
+  const canonical = await redis.lrange(WATCH_CANONICAL_KEY, 0, -1);
+  let canonicalRemoved = 0;
+  for (const raw of canonical) {
+    try {
+      const c = JSON.parse(raw) as { post_id: string };
+      if (c.post_id === postId) {
+        await redis.lrem(WATCH_CANONICAL_KEY, 1, raw);
+        canonicalRemoved++;
+      }
+    } catch {
+      continue;
+    }
+  }
+  if (canonicalRemoved > 0) {
+    console.log(`  Removed ${canonicalRemoved} entry from ${WATCH_CANONICAL_KEY}`);
+  }
+
+  // Find any follow-ons that referenced the deleted post — those links now dangle.
+  const allMeta = await redis.hgetall(WATCH_META_KEY);
+  const orphanedFollowOns: string[] = [];
+  for (const [followOnId, raw] of Object.entries(allMeta)) {
+    try {
+      const m = JSON.parse(raw) as { kind?: string; references_post_id?: string | null };
+      if (m.kind === 'follow-on' && m.references_post_id === postId) {
+        orphanedFollowOns.push(followOnId);
+      }
+    } catch {
+      continue;
+    }
+  }
+  if (orphanedFollowOns.length > 0) {
+    console.log('');
+    console.warn(`⚠️  WARNING: ${orphanedFollowOns.length} follow-on post(s) reference the deleted canonical ${postId}:`);
+    for (const fo of orphanedFollowOns) {
+      console.warn(`    ${fo}`);
+    }
+    console.warn(`  Their "First appeared →" links will 404. Set an override on each or re-classify.`);
+  }
+
+  if (metaDeleted + overrideDeleted + heroDeleted + canonicalRemoved === 0) {
+    console.log(`  (no classification data found for ${postId})`);
+  }
 }
 
 async function main() {
@@ -201,13 +282,31 @@ async function main() {
           console.log(`  Images: ${post.imageUrls.length}`);
           console.log(`  Created: ${post.createdAt}`);
           console.log(`  URL: ${post.postUrl}`);
-          
-          // Add Doodsky link for individual image
+
+          // Convenience link to the rendered post on the deployment
           const uriParts = post.uri.split('/');
           const postIdWithImage = uriParts[uriParts.length - 1];
-          const doodskyUrl = `https://doodsky.xyz/${post.authorHandle}/post/${encodeURIComponent(postIdWithImage)}`;
-          console.log(`  Doodsky: ${doodskyUrl}`);
+          const siteBase = process.env.SITE_URL ?? 'https://ryanswatches.com';
+          console.log(`  Site:  ${siteBase}/${post.authorHandle}/post/${encodeURIComponent(postIdWithImage)}`);
         }
+
+        // Watch-classifier context for the moderator
+        const meta = await redis.hget(WATCH_META_KEY, postId);
+        if (meta) {
+          try {
+            const m = JSON.parse(meta);
+            console.log(`\nWatch classification:`);
+            console.log(`  kind: ${m.kind}${m.brand ? `   (${m.brand} ${m.model ?? ''})`.trimEnd() : ''}`);
+            if (m.kind === 'follow-on' && m.references_post_id) {
+              console.log(`  follow-on of: ${m.references_post_id}`);
+            }
+            console.log(`  confidence: ${typeof m.confidence === 'number' ? m.confidence.toFixed(2) : '—'}`);
+          } catch {}
+        }
+        const override = await redis.hget(WATCH_OVERRIDES_KEY, postId);
+        if (override) console.log(`  has manual override (will be re-applied by apply-overrides)`);
+        const heroOverride = await redis.hget(HERO_OVERRIDES_KEY, postId);
+        if (heroOverride) console.log(`  has hero-image override → image${heroOverride}`);
       }
     }
   } catch (error) {
