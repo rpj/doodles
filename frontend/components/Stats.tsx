@@ -33,10 +33,8 @@ export default function Stats({
     <section className={styles.stats} aria-label="Collection statistics">
       <div className={styles.numbers}>
         <span><strong>{stats.uniqueCount}</strong> Watches</span>
-        <span className={styles.dot} aria-hidden="true">·</span>
+        <em className={styles.connector}>across</em>
         <span><strong>{stats.brandCount}</strong> Brands</span>
-        <span className={styles.dot} aria-hidden="true">·</span>
-        <span><strong>{stats.postCount}</strong> Posts</span>
       </div>
 
       <div className={styles.brands}>

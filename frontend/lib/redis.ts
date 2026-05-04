@@ -182,19 +182,25 @@ export async function getDoodles(
     allDoodles = await applyHeroOverrides(client, allDoodles);
   }
 
-  // Filter by brand if requested. We match against the canonical list so the
-  // gallery shows one card per unique watch of that brand (follow-on cards
-  // for that brand are intentionally excluded — the post page links back to
-  // the canonical via "First appeared").
+  // Filter by brand if requested. Joins against the watch-meta hash so the
+  // brand view shows BOTH canonical unique-watch posts AND any follow-on
+  // posts about that brand (band swaps, "wearing it again", etc.) — gives
+  // a complete brand timeline. The stats strip's brand counts are still
+  // canonical-only via getWatchStats(), so the headline number doesn't
+  // inflate.
   if (brand) {
-    const canonicalRaw = await client.lrange(WATCH_CANONICAL_KEY, 0, -1);
+    const metaAll = await client.hgetall(WATCH_META_KEY);
     const matchingPostIds = new Set<string>();
     const target = brand.toLowerCase();
-    for (const raw of canonicalRaw) {
+    for (const [postId, raw] of Object.entries(metaAll)) {
       try {
-        const c = JSON.parse(raw) as CanonicalEntry;
-        if (c.brand.toLowerCase() === target) {
-          matchingPostIds.add(c.post_id);
+        const m = JSON.parse(raw) as WatchMeta;
+        if (
+          m.brand &&
+          m.brand.toLowerCase() === target &&
+          (m.kind === 'unique-watch' || m.kind === 'follow-on')
+        ) {
+          matchingPostIds.add(postId);
         }
       } catch {
         // skip

@@ -163,33 +163,9 @@ export default function Home({
       </>;
     }
 
-    if (!primaryHandle) {
-      return <></>;
-    }
-
-    return (
-      <p className={styles.subtitle}>
-        An automatically-generated view of
-        posts tagged with{' '}
-        <a
-          href={`https://bsky.app/hashtag/${hashtagWithoutPrefix}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.subtitleLink}
-        >
-          {hashtag}
-        </a>
-        {' '} from{' '}
-        <a
-          href={`https://bsky.app/profile/${primaryHandle}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.subtitleLink}
-        >
-          @{primaryHandle}
-        </a>.
-      </p>
-    );
+    // Non-doodle deployments: no subtitle. The Stats strip below
+    // provides the attribution context.
+    return null;
   }
 
 
