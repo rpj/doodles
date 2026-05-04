@@ -2,7 +2,7 @@ import { Redis } from 'ioredis';
 import { confirm } from '@inquirer/prompts';
 
 async function clearAllData(redis: Redis): Promise<void> {
-  console.log('🗑️  Clearing all Daily Doodles data from Redis...\n');
+  console.log('🗑️  Clearing all watches data from Redis...\n');
 
   let totalDeleted = 0;
 
@@ -48,7 +48,7 @@ async function clearAllData(redis: Redis): Promise<void> {
 
   // Legacy keys that might exist from old versions
   console.log('\nChecking for legacy keys...');
-  const legacyPrefixes = ['doodles:', 'doodles-kaciecamilli:'];
+  const legacyPrefixes = ['posts:', 'posts-kaciecamilli:'];
   for (const prefix of legacyPrefixes) {
     const legacyKeys = await redis.keys(`${prefix}*`);
     if (legacyKeys.length > 0) {
@@ -65,7 +65,7 @@ async function main() {
   const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
   console.log('⚠️  Redis Data Cleanup Utility\n');
-  console.log('This will DELETE ALL data related to Daily Doodles from Redis, including:');
+  console.log('This will DELETE ALL data related to watches from Redis, including:');
   console.log('  - All collected posts');
   console.log('  - Processed URIs tracking');
   console.log('  - Saved authentication sessions');

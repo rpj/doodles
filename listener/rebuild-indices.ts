@@ -12,7 +12,7 @@ type Facet = {
   features: FacetFeature[];
 };
 
-type DoodlePost = {
+type Post = {
   uri: string,
   authorHandle: string,
   authorDisplayName: string,
@@ -46,7 +46,7 @@ async function rebuildIndices() {
   // Process each post
   for (let i = 0; i < allPosts.length; i++) {
     try {
-      const post: DoodlePost = JSON.parse(allPosts[i]);
+      const post: Post = JSON.parse(allPosts[i]);
       
       if (!handleMap.has(post.authorHandle)) {
         handleMap.set(post.authorHandle, []);

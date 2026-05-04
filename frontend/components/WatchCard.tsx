@@ -2,12 +2,12 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { DoodlePost } from '../lib/redis';
+import { Post } from '../lib/redis';
 import { getPostIdFromUri } from '../lib/utils';
-import styles from '../styles/DoodleCard.module.css';
+import styles from '../styles/WatchCard.module.css';
 
-interface DoodleCardProps {
-  doodle: DoodlePost;
+interface WatchCardProps {
+  post: Post;
   isHero?: boolean;
   userHandle?: string; // The handle context for routing (undefined for main page)
   customUsers?: string[]; // List of custom users for routing decisions on main page
@@ -15,23 +15,23 @@ interface DoodleCardProps {
   priority?: boolean; // Mark the first image as LCP-priority for above-the-fold cards
 }
 
-export default function DoodleCard({
-  doodle,
+export default function WatchCard({
+  post,
   isHero = false,
   userHandle,
   customUsers = [],
   serverHashtag,
   priority = false,
-}: DoodleCardProps) {
-  const postId = getPostIdFromUri(doodle.uri);
+}: WatchCardProps) {
+  const postId = getPostIdFromUri(post.uri);
   const isMainPage = !userHandle;
   const basePostId = postId.split('#')[0];
 
   const getFullPostLink = (): string => {
     if (userHandle) {
       return `/${userHandle}/post/${encodeURIComponent(basePostId)}`;
-    } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
-      return `/${doodle.authorHandle}/post/${encodeURIComponent(basePostId)}`;
+    } else if (isMainPage && customUsers.includes(post.authorHandle)) {
+      return `/${post.authorHandle}/post/${encodeURIComponent(basePostId)}`;
     } else {
       return `/post/${encodeURIComponent(basePostId)}?ref=${encodeURIComponent('/')}`;
     }
@@ -41,26 +41,26 @@ export default function DoodleCard({
     const fullPostId = `${basePostId}#image${imageIndex}`;
     if (userHandle) {
       return `/${userHandle}/post/${encodeURIComponent(fullPostId)}`;
-    } else if (isMainPage && customUsers.includes(doodle.authorHandle)) {
-      return `/${doodle.authorHandle}/post/${encodeURIComponent(fullPostId)}`;
+    } else if (isMainPage && customUsers.includes(post.authorHandle)) {
+      return `/${post.authorHandle}/post/${encodeURIComponent(fullPostId)}`;
     } else {
       return `/post/${encodeURIComponent(fullPostId)}?ref=${encodeURIComponent('/')}`;
     }
   };
 
-  const hasMultipleImages = doodle.imageUrls.length > 1;
+  const hasMultipleImages = post.imageUrls.length > 1;
   // On non-hero cards with multiple images we show a single preview image
   // (the first) with a "+N" badge. The whole image links to the full post,
   // not the per-image page, so the user lands somewhere they can actually
   // see the rest of the gallery.
   const showPreviewOnly = !isHero && hasMultipleImages;
   const visibleImages = showPreviewOnly
-    ? doodle.imageUrls.slice(0, 1)
-    : doodle.imageUrls;
-  const extraCount = showPreviewOnly ? doodle.imageUrls.length - 1 : 0;
+    ? post.imageUrls.slice(0, 1)
+    : post.imageUrls;
+  const extraCount = showPreviewOnly ? post.imageUrls.length - 1 : 0;
 
-  const cleanedText = isMainPage && doodle.text
-    ? doodle.text
+  const cleanedText = isMainPage && post.text
+    ? post.text
         .replaceAll('\n', ' / ')
         .replaceAll(new RegExp(`\\s*${serverHashtag}`, 'g'), '')
         .trim()
@@ -84,7 +84,7 @@ export default function DoodleCard({
                 {isHero ? (
                   <Image
                     src={url}
-                    alt={`Post by @${doodle.authorHandle}`}
+                    alt={`Post by @${post.authorHandle}`}
                     width={1200}
                     height={900}
                     className={styles.image}
@@ -94,7 +94,7 @@ export default function DoodleCard({
                 ) : (
                   <Image
                     src={url}
-                    alt={`Post by @${doodle.authorHandle}`}
+                    alt={`Post by @${post.authorHandle}`}
                     width={600}
                     height={600}
                     className={styles.image}
@@ -104,7 +104,7 @@ export default function DoodleCard({
                 )}
               </div>
               {extraCount > 0 && (
-                <span className={styles.imageCount} aria-label={`${doodle.imageUrls.length} images in this post`}>
+                <span className={styles.imageCount} aria-label={`${post.imageUrls.length} images in this post`}>
                   +{extraCount}
                 </span>
               )}
@@ -119,7 +119,7 @@ export default function DoodleCard({
             <h3 className={styles.title}>{cleanedText}</h3>
           )}
           <time className={styles.date}>
-            {format(new Date(doodle.createdAt), 'MMM d, yyyy')}
+            {format(new Date(post.createdAt), 'MMM d, yyyy')}
           </time>
         </Link>
       </div>

@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 /**
  * One-shot migration: re-fetch every stored post from Bluesky's public
- * getRecord API and stamp the original `facets` array onto our DoodlePost
+ * getRecord API and stamp the original `facets` array onto our Post
  * records. Brings legacy posts up to par with what the listener now stores
  * going forward (URLs no longer truncated, hashtags/mentions clickable).
  *
@@ -29,7 +29,7 @@ type Facet = {
   features: FacetFeature[];
 };
 
-type DoodlePost = {
+type Post = {
   uri: string;
   authorHandle: string;
   authorDisplayName: string;
@@ -123,7 +123,7 @@ async function main() {
       const sampleRaw = await redis.get(`post:${sampleVariant}`);
       if (sampleRaw) {
         try {
-          const parsedPost = JSON.parse(sampleRaw) as DoodlePost;
+          const parsedPost = JSON.parse(sampleRaw) as Post;
           if ('facets' in parsedPost) {
             skipped++;
             continue;
@@ -156,7 +156,7 @@ async function main() {
       const key = `post:${variant}`;
       const raw = await redis.get(key);
       if (!raw) continue;
-      let post: DoodlePost;
+      let post: Post;
       try {
         post = JSON.parse(raw);
       } catch {
@@ -178,7 +178,7 @@ async function main() {
     for (let idx = 0; idx < len; idx++) {
       const raw = await redis.lindex(listKey, idx);
       if (!raw) continue;
-      let post: DoodlePost;
+      let post: Post;
       try {
         post = JSON.parse(raw);
       } catch {

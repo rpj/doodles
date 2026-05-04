@@ -3,7 +3,7 @@ import { Redis } from 'ioredis';
 import { input } from '@inquirer/prompts';
 
 const REDIS_SET_NAME = `all-doodles:processed-uris`;
-const REDIS_DOODLE_LIST = `all-doodles:posts`;
+const REDIS_POST_LIST = `all-doodles:posts`;
 const REDIS_SESSION_NAME = `all-doodles:saved-session`;
 
 type FacetFeature =
@@ -16,7 +16,7 @@ type Facet = {
   features: FacetFeature[];
 };
 
-type DoodlePost = {
+type Post = {
   uri: string,
   authorHandle: string,
   authorDisplayName: string,
@@ -149,7 +149,7 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
       return;
     }
     
-    // Create separate doodle post for each image
+    // Create separate post post for each image
     for (let i = 0; i < imageUrls.length; i++) {
       const imageUri = `${uri}#image${i}`;
       
@@ -159,7 +159,7 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
         continue;
       }
       
-      const doodlePost: DoodlePost = {
+      const entry: Post = {
         uri: imageUri,
         authorHandle: post.author?.handle || handle,
         authorDisplayName: post.author?.displayName || post.author?.handle || handle,
@@ -171,11 +171,11 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
       };
       
       // Store in Redis (using RPUSH to maintain chronological order)
-      await redis.rpush(REDIS_DOODLE_LIST, JSON.stringify(doodlePost));
+      await redis.rpush(REDIS_POST_LIST, JSON.stringify(entry));
       await redis.sadd(REDIS_SET_NAME, imageUri);
       
       // Store the full post data with URI as key
-      await redis.set(`post:${imageUri}`, JSON.stringify(doodlePost));
+      await redis.set(`post:${imageUri}`, JSON.stringify(entry));
       
       // Update handle list with URI instead of index
       const handleKey = `handle:${post.author?.handle || handle}:posts`;
@@ -184,7 +184,7 @@ async function backfillPost(agent: AtpAgent, redis: Redis, postUrl: string): Pro
       // Add handle to the set of all handles
       await redis.sadd('handles:all', post.author?.handle || handle);
       
-      console.log(`Backfilled doodle ${i + 1}/${imageUrls.length} from @${post.author?.handle || handle}: "${doodlePost.text.substring(0, 50)}..."`);
+      console.log(`Backfilled post ${i + 1}/${imageUrls.length} from @${post.author?.handle || handle}: "${entry.text.substring(0, 50)}..."`);
     }
     
     // Also mark the original post URI as processed
@@ -203,7 +203,7 @@ async function main() {
   // Clear previously processed posts so we can re-process them
   console.log('Clearing processed posts...');
   await redis.del(REDIS_SET_NAME);
-  await redis.del(REDIS_DOODLE_LIST);
+  await redis.del(REDIS_POST_LIST);
   
   // Authenticate with 2FA support
   await login(agent, redis);

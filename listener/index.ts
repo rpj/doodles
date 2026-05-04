@@ -7,7 +7,7 @@ import { classifyAndRecord, getBasePostId } from './classify-post';
 const IDENT = process.env.BLUESKY_IDENT;
 const START_TS = Date.now();
 
-const POLLING_FREQ_SECONDS = Number.parseInt(process.env.DOODLE_POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
+const POLLING_FREQ_SECONDS = Number.parseInt(process.env.POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
 
 // Hashtag to watch is required — no default. The listener has nothing to do
 // without one. Exit cleanly so the operator notices in container logs.
@@ -39,7 +39,7 @@ type Facet = {
   features: FacetFeature[];
 };
 
-type DoodlePost = {
+type Post = {
   uri: string,
   authorHandle: string,
   authorDisplayName: string,
@@ -133,7 +133,7 @@ function hasSkipTag(text: string, post?: any): boolean {
   return false;
 }
 
-async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
+async function searchForPosts(agent: AtpAgent, redis: Redis): Promise<void> {
   console.log(`Searching for posts with ${HASHTAG_TO_WATCH}...`);
   
   try {
@@ -255,7 +255,7 @@ async function searchForDoodles(agent: AtpAgent, redis: Redis): Promise<void> {
     console.log(`Processed ${processedCount} new posts in ${batchCount} batches`);
     
   } catch (error) {
-    console.error('Error searching for doodles:', error);
+    console.error('Error searching for posts:', error);
   }
 }
 
@@ -272,14 +272,14 @@ async function processPost(
   }
   
   const processedUrisKey = 'all-doodles:processed-uris';
-  const doodleListKey = 'all-doodles:posts';
+  const postListKey = 'all-doodles:posts';
   
   // Check if already processed
   if (await redis.sismember(processedUrisKey, post.uri)) {
     return;
   }
   
-  // Create separate doodle post for each image
+  // Create separate post post for each image
   for (let i = 0; i < imageUrls.length; i++) {
     const imageUri = `${post.uri}#image${i}`;
     
@@ -288,7 +288,7 @@ async function processPost(
       continue;
     }
     
-    const doodlePost: DoodlePost = {
+    const entry: Post = {
       uri: imageUri,
       authorHandle: post.author.handle,
       authorDisplayName: post.author.displayName || post.author.handle,
@@ -300,11 +300,11 @@ async function processPost(
     };
     
     // Store in Redis - main list for backwards compatibility
-    await redis.lpush(doodleListKey, JSON.stringify(doodlePost));
+    await redis.lpush(postListKey, JSON.stringify(entry));
     await redis.sadd(processedUrisKey, imageUri);
     
     // Store the full post data with URI as key
-    await redis.set(`post:${imageUri}`, JSON.stringify(doodlePost));
+    await redis.set(`post:${imageUri}`, JSON.stringify(entry));
     
     // Update handle list with URI instead of index
     const handleKey = `handle:${post.author.handle}:posts`;
@@ -313,7 +313,7 @@ async function processPost(
     // Add handle to the set of all handles
     await redis.sadd('handles:all', post.author.handle);
     
-    console.log(`Added doodle ${i + 1}/${imageUrls.length} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
+    console.log(`Added post ${i + 1}/${imageUrls.length} from @${post.author.handle}: "${postText.substring(0, 50)}..."`);
   }
 
   // Also mark the original post URI as processed
@@ -367,11 +367,11 @@ async function main() {
   let handle: string;
   const agent = new AtpAgent({
     service: 'https://bsky.social',
-    // Use 'all-doodles' prefix for session management (shared session)
-    persistSession: agentSessionWasRefreshed.bind(null, redis, 'all-doodles'),
+    // Use 'all-posts' prefix for session management (shared session)
+    persistSession: agentSessionWasRefreshed.bind(null, redis, 'all-posts'),
   });
 
-  console.log('Starting unified listener (all posts stored in all-doodles:*)');
+  console.log('Starting unified listener (all posts stored in all-posts:*)');
   console.log(`Watching hashtag: ${HASHTAG_TO_WATCH}`);
   if (HANDLES_TO_WATCH && HANDLES_TO_WATCH.length > 0) {
     console.log(`Filtering by handles: ${HANDLES_TO_WATCH.join(', ')}`);
@@ -381,7 +381,7 @@ async function main() {
   console.log('');
 
   try {
-    handle = await login(agent, redis, 'all-doodles');
+    handle = await login(agent, redis, 'all-posts');
   } catch (e: any) {
     if (e.status === 429 && e.error === 'RateLimitExceeded') {
       console.error(`Login rate limit reached!`);
@@ -399,11 +399,11 @@ async function main() {
     await new Promise((resolve, reject) => {
       resolver = resolve;
       console.debug(`Waking up at ${new Date()}...`);
-      searchForDoodles(agent, redis)
+      searchForPosts(agent, redis)
         .then(() => setTimeout(() => resolve(true), POLLING_FREQ_SECONDS * 1000))
         .then(timeoutHandle => (pollHandle = timeoutHandle))
         .catch((error) => {
-          console.error(`searchForDoodles errored: ${error}`);
+          console.error(`searchForPosts errored: ${error}`);
           reject(error);
         })
     });

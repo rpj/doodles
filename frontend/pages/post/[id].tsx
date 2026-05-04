@@ -4,14 +4,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getPostById, getFullPostById, getWatchMeta, DoodlePost, WatchMeta } from '../../lib/redis';
+import { getPostById, getFullPostById, getWatchMeta, Post, WatchMeta } from '../../lib/redis';
 import { useTheme } from '../../contexts/ThemeContext';
 import styles from '../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../lib/utils';
 import RichText, { stripTriggerHashtag } from '../../components/RichText';
 
 interface PostPageProps {
-  post: DoodlePost | null;
+  post: Post | null;
   backUrl: string;
   hashtagWithoutPrefix: string;
   watchMeta: WatchMeta | null;

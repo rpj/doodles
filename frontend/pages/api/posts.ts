@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getDoodles, DoodlePost, PaginatedDoodles } from '../../lib/redis';
+import { getPosts, Post, PaginatedPosts } from '../../lib/redis';
 import { rateLimit, cors, validateHandle, runMiddleware } from '../../lib/api-middleware';
 import { groupPostsByBaseUri } from '../../lib/utils';
 
@@ -21,7 +21,7 @@ const corsMiddleware = cors({
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<DoodlePost[] | PaginatedDoodles | { error: string }>
+  res: NextApiResponse<Post[] | PaginatedPosts | { error: string }>
 ) {
   // Apply CORS middleware
   await runMiddleware(req, res, corsMiddleware);
@@ -56,12 +56,12 @@ export default async function handler(
       : undefined;
 
     if (paginate) {
-      const result = await getDoodles(handle || undefined, page, pageSize, shouldGroup, brand);
+      const result = await getPosts(handle || undefined, page, pageSize, shouldGroup, brand);
       res.status(200).json(result);
     } else {
-      // Backward compatibility - return all doodles as array
-      const result = await getDoodles(handle || undefined, 1, -1, shouldGroup, brand);
-      res.status(200).json(result.doodles);
+      // Backward compatibility - return all posts as array
+      const result = await getPosts(handle || undefined, 1, -1, shouldGroup, brand);
+      res.status(200).json(result.posts);
     }
   } catch (error) {
     // Check if it's a validation error
@@ -69,7 +69,7 @@ export default async function handler(
       return res.status(400).json({ error: error.message });
     }
     
-    console.error('Error fetching doodles:', error);
-    res.status(500).json({ error: 'Failed to fetch doodles' });
+    console.error('Error fetching posts:', error);
+    res.status(500).json({ error: 'Failed to fetch posts' });
   }
 }

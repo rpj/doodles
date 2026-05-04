@@ -29,7 +29,7 @@ export default function Document() {
         <Main />
         <NextScript />
       </body>
-      <script data-goatcounter="https://rpj-doodles.goatcounter.com/count"
+      <script data-goatcounter="https://rpj-posts.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
     </Html>
   );

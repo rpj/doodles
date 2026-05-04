@@ -18,7 +18,7 @@ export function getPostIdAndImageIndex(uri: string): { postId: string; imageInde
 }
 
 /**
- * Groups DoodlePosts by base URI, combining multi-image posts into single entries.
+ * Groups Posts by base URI, combining multi-image posts into single entries.
  * Used when both HANDLES_TO_WATCH and HASHTAG_TO_WATCH are set to reduce text duplication.
  */
 export function groupPostsByBaseUri<T extends { uri: string; imageUrls: string[]; createdAt: string }>(posts: T[]): T[] {

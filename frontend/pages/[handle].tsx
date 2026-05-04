@@ -3,8 +3,8 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GetServerSideProps } from 'next';
-import { DoodlePost, PaginatedDoodles } from '../lib/redis';
-import DoodleCard from '../components/DoodleCard';
+import { Post, PaginatedPosts } from '../lib/redis';
+import WatchCard from '../components/WatchCard';
 import Pagination from '../components/Pagination';
 import { useTheme } from '../contexts/ThemeContext';
 import styles from '../styles/Home.module.css';
@@ -16,7 +16,7 @@ interface HandlePageProps {
 }
 
 export default function HandlePage({ handle: serverHandle, serverHashtag, serverHashtagWithoutPrefix }: HandlePageProps) {
-  const [doodles, setDoodles] = useState<DoodlePost[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,38 +44,38 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
     }
   }, [router.isReady]);
 
-  // Fetch doodles when page or handle changes
+  // Fetch posts when page or handle changes
   useEffect(() => {
     if (!handle || !router.isReady) return;
 
-    fetchDoodles(currentPage);
+    fetchPosts(currentPage);
   }, [handle, currentPage, router.isReady]);
   
   useEffect(() => {
     if (!handle || !router.isReady) return;
     
     // Refresh every 5 minutes (but only current page)
-    const interval = setInterval(() => fetchDoodles(currentPage), 5 * 60 * 1000);
+    const interval = setInterval(() => fetchPosts(currentPage), 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [handle, currentPage, router.isReady]);
 
-  async function fetchDoodles(page: number = 1) {
+  async function fetchPosts(page: number = 1) {
     if (!handle) return;
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/doodles?handle=${handle}&paginate=true&page=${page}&pageSize=50`);
+      const response = await fetch(`/api/posts?handle=${handle}&paginate=true&page=${page}&pageSize=50`);
       if (!response.ok) {
-        throw new Error('Failed to fetch doodles');
+        throw new Error('Failed to fetch posts');
       }
-      const data: PaginatedDoodles = await response.json();
-      setDoodles(data.doodles);
+      const data: PaginatedPosts = await response.json();
+      setPosts(data.posts);
       setHasMore(data.hasMore);
       setTotalPages(Math.ceil(data.totalCount / data.pageSize));
       setError(null);
     } catch (err) {
-      setError('Unable to load doodles');
-      console.error('Error fetching doodles:', err);
+      setError('Unable to load posts');
+      console.error('Error fetching posts:', err);
     } finally {
       setLoading(false);
     }
@@ -119,7 +119,7 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
             ← All Posts
           </Link>
           <a 
-            href="https://github.com/rpj/doodles"
+            href="https://github.com/rpj/watches"
             target="_blank"
             rel="noopener noreferrer"
             className={styles.githubButton}
@@ -169,24 +169,24 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
           <div className={styles.error}>{error}</div>
         )}
 
-        {!loading && !error && doodles.length === 0 && (
+        {!loading && !error && posts.length === 0 && (
           <div className={styles.empty}>
-            No doodles found yet from @{handleStr}. Post with {hashtag} on Bluesky!
+            No posts found yet from @{handleStr}. Post with {hashtag} on Bluesky!
           </div>
         )}
 
-        {!loading && !error && doodles.length > 0 && (
+        {!loading && !error && posts.length > 0 && (
           <>
-            {doodles.length > 0 && currentPage === 1 && (
+            {posts.length > 0 && currentPage === 1 && (
               <div className={styles.heroSection}>
-                <DoodleCard key={doodles[0].uri} doodle={doodles[0]} isHero={true} userHandle={handleStr} serverHashtag={serverHashtag} priority={true} />
+                <WatchCard key={posts[0].uri} post={posts[0]} isHero={true} userHandle={handleStr} serverHashtag={serverHashtag} priority={true} />
               </div>
             )}
 
-            {(currentPage === 1 ? doodles.slice(1) : doodles).length > 0 && (
+            {(currentPage === 1 ? posts.slice(1) : posts).length > 0 && (
               <div className={styles.grid}>
-                {(currentPage === 1 ? doodles.slice(1) : doodles).map((doodle, index) => (
-                  <DoodleCard key={doodle.uri} doodle={doodle} userHandle={handleStr} serverHashtag={serverHashtag} priority={currentPage > 1 && index === 0} />
+                {(currentPage === 1 ? posts.slice(1) : posts).map((post, index) => (
+                  <WatchCard key={post.uri} post={post} userHandle={handleStr} serverHashtag={serverHashtag} priority={currentPage > 1 && index === 0} />
                 ))}
               </div>
             )}

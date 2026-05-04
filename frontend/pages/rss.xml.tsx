@@ -1,5 +1,5 @@
 import { GetServerSideProps } from 'next';
-import { getDoodles } from '../lib/redis';
+import { getPosts } from '../lib/redis';
 import { getPostIdFromUri } from '../lib/utils';
 
 // XML escape function to prevent injection attacks
@@ -31,8 +31,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res, query }) => 
       }
     }
 
-    const doodlesData = await getDoodles(handle);
-    const isAllTheDoodles = !handle;
+    const postsData = await getPosts(handle);
+    const isAllPosts = !handle;
 
     if (!process.env.HASHTAG_TO_WATCH || !process.env.HASHTAG_TO_WATCH.trim()) {
       res.statusCode = 500;
@@ -47,30 +47,30 @@ export const getServerSideProps: GetServerSideProps = async ({ res, query }) => 
     const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${isAllTheDoodles ? 'All The Doodles' : `${escapeXml(handle!)}'s Daily Doodles`}</title>
-    <description>${isAllTheDoodles ? `All ${HASHTAG_TO_WATCH} posts from Bluesky` : `@${escapeXml(handle!)}'s ${HASHTAG_TO_WATCH} posts from Bluesky`}</description>
+    <title>${isAllPosts ? 'All The Watches' : `${escapeXml(handle!)}'s posts`}</title>
+    <description>${isAllPosts ? `All ${HASHTAG_TO_WATCH} posts from Bluesky` : `@${escapeXml(handle!)}'s ${HASHTAG_TO_WATCH} posts from Bluesky`}</description>
     <link>https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doodsky.xyz${handle && handle !== 'ryanjoseph.dev' ? `/${escapeXml(handle)}` : ''}</link>
     <atom:link href="https://${handle === 'ryanjoseph.dev' ? 'rj.' : ''}doodsky.xyz/rss.xml${handle && handle !== 'ryanjoseph.dev' ? `?handle=${escapeXml(handle)}` : ''}" rel="self" type="application/rss+xml" />
     <language>en</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    <generator>${isAllTheDoodles ? 'All The Doodles' : 'Daily Doodles'} RSS Generator</generator>
+    <generator>${isAllPosts ? 'All The Watches' : 'Watches'} RSS Generator</generator>
     <managingEditor>hello@doodsky.xyz (Ryan Joseph)</managingEditor>
     <webMaster>hello@doodsky.xyz (Ryan Joseph)</webMaster>
-${doodlesData.doodles.slice(0, 50).map(doodle => {
-  const cleanText = doodle.text.replace(/#\w+/g, '').trim();
-  const titlePrefix = isAllTheDoodles ? `Doodle by @${escapeXml(doodle.authorHandle)}` : 'Daily Doodle';
+${postsData.posts.slice(0, 50).map(post => {
+  const cleanText = post.text.replace(/#\w+/g, '').trim();
+  const titlePrefix = isAllPosts ? `Post by @${escapeXml(post.authorHandle)}` : 'Watch';
   return `    <item>
-      <title>${titlePrefix} - ${new Date(doodle.createdAt).toLocaleDateString('en-US', { 
+      <title>${titlePrefix} - ${new Date(post.createdAt).toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
       })}</title>
-      <description><![CDATA[${cleanText ? escapeXml(cleanText) + '<br/><br/>' : ''}${doodle.imageUrls.map(url => 
-        `<img src="${escapeXml(url)}" alt="Daily Doodle" />`
+      <description><![CDATA[${cleanText ? escapeXml(cleanText) + '<br/><br/>' : ''}${post.imageUrls.map(url => 
+        `<img src="${escapeXml(url)}" alt="Watch" />`
       ).join('<br/>')}]]></description>
-      <link>https://doodsky.xyz/${handle === 'ryanjoseph.dev' ? `${escapeXml(handle)}/` : ''}post/${encodeURIComponent(getPostIdFromUri(doodle.uri))}</link>
-      <guid isPermaLink="false">${doodle.uri}</guid>
-      <pubDate>${new Date(doodle.createdAt).toUTCString()}</pubDate>
+      <link>https://doodsky.xyz/${handle === 'ryanjoseph.dev' ? `${escapeXml(handle)}/` : ''}post/${encodeURIComponent(getPostIdFromUri(post.uri))}</link>
+      <guid isPermaLink="false">${post.uri}</guid>
+      <pubDate>${new Date(post.createdAt).toUTCString()}</pubDate>
     </item>`;
 }).join('\n')}
   </channel>

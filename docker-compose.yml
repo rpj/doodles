@@ -7,7 +7,7 @@ services:
       - REDIS_URL=${REDIS_URL}
       - BLUESKY_IDENT=${BLUESKY_IDENT}
       - BLUESKY_PASS=${BLUESKY_PASS}
-      - DOODLE_POLLING_FREQ_SECONDS=${DOODLE_POLLING_FREQ_SECONDS:-300}
+      - POLLING_FREQ_SECONDS=${POLLING_FREQ_SECONDS:-300}
       - HASHTAG_TO_WATCH=${HASHTAG_TO_WATCH}
       - HANDLES_TO_WATCH=${HANDLES_TO_WATCH}
       # Watch classifier (classify-post.ts shells out to `claude -p`)

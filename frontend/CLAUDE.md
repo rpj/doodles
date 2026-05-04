@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Next.js frontend for "Daily Doodles" - a web application that displays art posted to Bluesky with the #DailyDoodle hashtag. The app features a gallery view and individual post pages with a sophisticated Art Deco-inspired black/white design with metallic silver accents.
+This is a Next.js frontend for "Watches" - a web application that displays art posted to Bluesky with the #YourTag hashtag. The app features a gallery view and individual post pages with a sophisticated Art Deco-inspired black/white design with metallic silver accents.
 
 ## Development Commands
 
@@ -16,7 +16,7 @@ This is a Next.js frontend for "Daily Doodles" - a web application that displays
 ## Architecture & Data Flow
 
 ### Core Data Structure
-The application centers around the `DoodlePost` type (defined in `lib/redis.ts`) which represents a Bluesky post with associated metadata. Each post can have multiple images, and the system creates separate entries for each image (identified by URI + image index).
+The application centers around the `Post` type (defined in `lib/redis.ts`) which represents a Bluesky post with associated metadata. Each post can have multiple images, and the system creates separate entries for each image (identified by URI + image index).
 
 ### Data Sources
 - **Redis**: Primary data store containing pre-processed Bluesky posts in `doodles:posts` list
@@ -24,7 +24,7 @@ The application centers around the `DoodlePost` type (defined in `lib/redis.ts`)
 
 ### Key Architecture Patterns
 
-**Multi-Image Post Handling**: When a Bluesky post contains multiple images, each gets a separate `DoodlePost` entry with URIs like `at://...post/ID#image0`, `at://...post/ID#image1`. The `lib/utils.ts` functions handle parsing these URIs for routing.
+**Multi-Image Post Handling**: When a Bluesky post contains multiple images, each gets a separate `Post` entry with URIs like `at://...post/ID#image0`, `at://...post/ID#image1`. The `lib/utils.ts` functions handle parsing these URIs for routing.
 
 **Theme System**: CSS custom properties in `styles/globals.css` define light/dark themes applied via `data-theme` attribute. The `ThemeContext` manages state and localStorage persistence.
 
@@ -42,7 +42,7 @@ The application centers around the `DoodlePost` type (defined in `lib/redis.ts`)
 
 **Component Styling**: CSS Modules for scoped styles. Key modules:
 - `Home.module.css` - Main page with dramatic title effects
-- `DoodleCard.module.css` - Gallery cards with hover animations
+- `WatchCard.module.css` - Gallery cards with hover animations
 - `Post.module.css` - Individual post pages
 
 **Typography**: Google Fonts 'Limelight' for headings, 'Fascinate' for body text.

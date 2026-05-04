@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { DoodlePost, getCustomUsers, PaginatedDoodles, WatchStats, getWatchStats } from '../lib/redis';
-import DoodleCard from '../components/DoodleCard';
+import { Post, getCustomUsers, PaginatedPosts, WatchStats, getWatchStats } from '../lib/redis';
+import WatchCard from '../components/WatchCard';
 import Pagination from '../components/Pagination';
 import Stats from '../components/Stats';
 import { useTheme } from '../contexts/ThemeContext';
@@ -26,7 +26,7 @@ export default function Home({
   serverPrimaryHandle,
   serverStats,
 }: HomeProps) {
-  const [doodles, setDoodles] = useState<DoodlePost[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [customUsers, setCustomUsers] = useState<string[]>([]);
@@ -58,10 +58,10 @@ export default function Home({
     }
   }, [router.isReady]);
 
-  // Fetch doodles when page / brand filter / config changes
+  // Fetch posts when page / brand filter / config changes
   useEffect(() => {
     if (router.isReady) {
-      fetchDoodles(currentPage, activeBrand);
+      fetchPosts(currentPage, activeBrand);
       fetchCustomUsers();
     }
   }, [router.isReady, currentPage, hasHandlesToWatch, activeBrand]);
@@ -70,14 +70,14 @@ export default function Home({
     if (router.isReady) {
       // Refresh every 5 minutes (current page + filter, plus stats)
       const interval = setInterval(() => {
-        fetchDoodles(currentPage, activeBrand);
+        fetchPosts(currentPage, activeBrand);
         fetchStats();
       }, 5 * 60 * 1000);
       return () => clearInterval(interval);
     }
   }, [router.isReady, currentPage, hasHandlesToWatch, activeBrand]);
 
-  async function fetchDoodles(page: number = 1, brand?: string | null) {
+  async function fetchPosts(page: number = 1, brand?: string | null) {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -86,20 +86,20 @@ export default function Home({
         pageSize: '50',
       });
       if (brand) params.set('brand', brand);
-      const response = await fetch(`/api/doodles?${params.toString()}`);
+      const response = await fetch(`/api/posts?${params.toString()}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch doodles');
+        throw new Error('Failed to fetch posts');
       }
-      const data: PaginatedDoodles = await response.json();
+      const data: PaginatedPosts = await response.json();
 
       // Grouping is now handled server-side in the API when HANDLES_TO_WATCH is set
-      setDoodles(data.doodles);
+      setPosts(data.posts);
       setHasMore(data.hasMore);
       setTotalPages(Math.ceil(data.totalCount / data.pageSize));
       setError(null);
     } catch (err) {
-      setError('Unable to load doodles');
-      console.error('Error fetching doodles:', err);
+      setError('Unable to load posts');
+      console.error('Error fetching posts:', err);
     } finally {
       setLoading(false);
     }
@@ -159,7 +159,7 @@ export default function Home({
       <main className={styles.main}>
         <div className={styles.topButtons}>
           <a 
-            href="https://github.com/rpj/doodles"
+            href="https://github.com/rpj/watches"
             target="_blank"
             rel="noopener noreferrer"
             className={styles.githubButton}
@@ -213,19 +213,19 @@ export default function Home({
           <div className={styles.error}>{error}</div>
         )}
 
-        {!loading && !error && doodles.length === 0 && (
+        {!loading && !error && posts.length === 0 && (
           <div className={styles.empty}>
-            No doodles found yet. Post with {hashtag} on Bluesky!
+            No posts found yet. Post with {hashtag} on Bluesky!
           </div>
         )}
 
-        {!loading && !error && doodles.length > 0 && (
+        {!loading && !error && posts.length > 0 && (
           <>
             <div className={styles.grid}>
-              {doodles.map((doodle, index) => (
-                <DoodleCard
-                  key={doodle.uri}
-                  doodle={doodle}
+              {posts.map((post, index) => (
+                <WatchCard
+                  key={post.uri}
+                  post={post}
                   customUsers={customUsers}
                   serverHashtag={serverHashtag}
                   priority={index === 0}

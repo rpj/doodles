@@ -20,7 +20,7 @@ export type Facet = {
   features: FacetFeature[];
 };
 
-export type DoodlePost = {
+export type Post = {
   uri: string;
   authorHandle: string;
   authorDisplayName: string;
@@ -70,24 +70,24 @@ export async function getCustomUsers(): Promise<string[]> {
   return handles.sort();
 }
 
-export interface PaginatedDoodles {
-  doodles: DoodlePost[];
+export interface PaginatedPosts {
+  posts: Post[];
   totalCount: number;
   hasMore: boolean;
   page: number;
   pageSize: number;
 }
 
-export async function getDoodles(
+export async function getPosts(
   handle?: string,
   page: number = 1,
   pageSize: number = 50,
   shouldGroup: boolean = false,
   brand?: string
-): Promise<PaginatedDoodles> {
+): Promise<PaginatedPosts> {
   const client = getRedisClient();
 
-  let allDoodles: DoodlePost[];
+  let allPosts: Post[];
   
   if (handle) {
     // Sanitize handle to prevent Redis command injection
@@ -102,7 +102,7 @@ export async function getDoodles(
     if (uris.length === 0) {
       // No posts for this handle
       return {
-        doodles: [],
+        posts: [],
         totalCount: 0,
         hasMore: false,
         page,
@@ -123,17 +123,17 @@ export async function getDoodles(
       const results = await pipeline.exec();
       
       // Parse the posts
-      allDoodles = results
+      allPosts = results
         ?.map(([err, data]) => {
           if (err || !data) return null;
           try {
-            return JSON.parse(data as string) as DoodlePost;
+            return JSON.parse(data as string) as Post;
           } catch (e) {
-            console.error('Failed to parse doodle:', e);
+            console.error('Failed to parse post:', e);
             return null;
           }
         })
-        .filter((doodle): doodle is DoodlePost => doodle !== null) || [];
+        .filter((post): post is Post => post !== null) || [];
     } else {
       // Old format: Fetch posts by indices (backwards compatibility)
       const pipeline = client.pipeline();
@@ -143,43 +143,43 @@ export async function getDoodles(
       const results = await pipeline.exec();
       
       // Parse the posts
-      allDoodles = results
+      allPosts = results
         ?.map(([err, data]) => {
           if (err || !data) return null;
           try {
-            return JSON.parse(data as string) as DoodlePost;
+            return JSON.parse(data as string) as Post;
           } catch (e) {
-            console.error('Failed to parse doodle:', e);
+            console.error('Failed to parse post:', e);
             return null;
           }
         })
-        .filter((doodle): doodle is DoodlePost => doodle !== null) || [];
+        .filter((post): post is Post => post !== null) || [];
     }
   } else {
     // Get all posts
     const totalCount = await client.llen('all-doodles:posts');
-    const rawDoodles = await client.lrange('all-doodles:posts', 0, totalCount - 1);
+    const rawPosts = await client.lrange('all-doodles:posts', 0, totalCount - 1);
     
-    // Parse all doodles
-    allDoodles = rawDoodles
+    // Parse all posts
+    allPosts = rawPosts
       .map(raw => {
         try {
-          return JSON.parse(raw) as DoodlePost;
+          return JSON.parse(raw) as Post;
         } catch (e) {
-          console.error('Failed to parse doodle:', e);
+          console.error('Failed to parse post:', e);
           return null;
         }
       })
-      .filter((doodle): doodle is DoodlePost => doodle !== null);
+      .filter((post): post is Post => post !== null);
   }
   
   // Sort by creation date (newest first)
-  allDoodles.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  allPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // Apply grouping if requested (combines multi-image posts into single entries)
   if (shouldGroup) {
-    allDoodles = groupPostsByBaseUri(allDoodles);
-    allDoodles = await applyHeroOverrides(client, allDoodles);
+    allPosts = groupPostsByBaseUri(allPosts);
+    allPosts = await applyHeroOverrides(client, allPosts);
   }
 
   // Filter by brand if requested. Joins against the watch-meta hash so the
@@ -206,7 +206,7 @@ export async function getDoodles(
         // skip
       }
     }
-    allDoodles = allDoodles.filter(d => {
+    allPosts = allPosts.filter(d => {
       const m = d.uri.match(/\/app\.bsky\.feed\.post\/([^#]+)/);
       return m ? matchingPostIds.has(m[1]) : false;
     });
@@ -215,21 +215,21 @@ export async function getDoodles(
   // Apply pagination to sorted (and possibly grouped) results
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedDoodles = allDoodles.slice(startIndex, endIndex);
+  const paginatedPosts = allPosts.slice(startIndex, endIndex);
 
   return {
-    doodles: paginatedDoodles,
-    totalCount: allDoodles.length,
-    hasMore: endIndex < allDoodles.length,
+    posts: paginatedPosts,
+    totalCount: allPosts.length,
+    hasMore: endIndex < allPosts.length,
     page,
     pageSize
   };
 }
 
 // Keep backward compatibility function
-export async function getAllDoodles(handle?: string): Promise<DoodlePost[]> {
-  const result = await getDoodles(handle, 1, -1);
-  return result.doodles;
+export async function getAllPosts(handle?: string): Promise<Post[]> {
+  const result = await getPosts(handle, 1, -1);
+  return result.posts;
 }
 
 /**
@@ -287,8 +287,8 @@ export async function getWatchStats(): Promise<WatchStats> {
 // multi-image posts; the post detail page keeps the original order.
 async function applyHeroOverrides(
   client: Redis,
-  posts: DoodlePost[]
-): Promise<DoodlePost[]> {
+  posts: Post[]
+): Promise<Post[]> {
   const basePostIdFromUri = (uri: string): string | null => {
     const match = uri.match(/\/app\.bsky\.feed\.post\/([^#]+)/);
     return match ? match[1] : null;
@@ -336,7 +336,7 @@ async function applyHeroOverrides(
 }
 
 // Fetch a single post by post ID, optionally filtered by handle
-export async function getPostById(postId: string, handle?: string): Promise<DoodlePost | null> {
+export async function getPostById(postId: string, handle?: string): Promise<Post | null> {
   const client = getRedisClient();
 
   // Sanitize handle if provided
@@ -365,15 +365,15 @@ export async function getPostById(postId: string, handle?: string): Promise<Dood
     } else {
       // No handle provided - search through all-doodles:posts for matching post ID
       const totalCount = await client.llen('all-doodles:posts');
-      const rawDoodles = await client.lrange('all-doodles:posts', 0, totalCount - 1);
+      const rawPosts = await client.lrange('all-doodles:posts', 0, totalCount - 1);
 
-      for (const raw of rawDoodles) {
+      for (const raw of rawPosts) {
         try {
-          const doodle = JSON.parse(raw) as DoodlePost;
+          const post = JSON.parse(raw) as Post;
           // Extract post ID from URI and compare
-          const match = doodle.uri.match(/\/app\.bsky\.feed\.post\/(.+)/);
+          const match = post.uri.match(/\/app\.bsky\.feed\.post\/(.+)/);
           if (match && match[1] === postId) {
-            return doodle;
+            return post;
           }
         } catch (e) {
           continue;
@@ -388,7 +388,7 @@ export async function getPostById(postId: string, handle?: string): Promise<Dood
     // Try to fetch the post directly
     const postData = await client.get(`post:${targetUri}`);
     if (postData) {
-      return JSON.parse(postData) as DoodlePost;
+      return JSON.parse(postData) as Post;
     }
 
     return null;
@@ -399,8 +399,8 @@ export async function getPostById(postId: string, handle?: string): Promise<Dood
 }
 
 // Fetch a full post with all images by base post ID (strips #imageN suffix)
-// This combines all images from a multi-image post into a single DoodlePost
-export async function getFullPostById(postId: string, handle?: string): Promise<DoodlePost | null> {
+// This combines all images from a multi-image post into a single Post
+export async function getFullPostById(postId: string, handle?: string): Promise<Post | null> {
   const client = getRedisClient();
 
   // Sanitize handle if provided
@@ -414,19 +414,19 @@ export async function getFullPostById(postId: string, handle?: string): Promise<
 
     // Search through all-doodles:posts for all matching posts
     const totalCount = await client.llen('all-doodles:posts');
-    const rawDoodles = await client.lrange('all-doodles:posts', 0, totalCount - 1);
+    const rawPosts = await client.lrange('all-doodles:posts', 0, totalCount - 1);
 
-    const matchingPosts: DoodlePost[] = [];
+    const matchingPosts: Post[] = [];
 
-    for (const raw of rawDoodles) {
+    for (const raw of rawPosts) {
       try {
-        const doodle = JSON.parse(raw) as DoodlePost;
+        const post = JSON.parse(raw) as Post;
         // Extract base post ID from URI (strip #imageN if present)
-        const match = doodle.uri.match(/\/app\.bsky\.feed\.post\/([^#]+)/);
+        const match = post.uri.match(/\/app\.bsky\.feed\.post\/([^#]+)/);
         if (match && match[1] === basePostId) {
           // If handle filter is provided, check it matches
-          if (!handle || doodle.authorHandle === handle) {
-            matchingPosts.push(doodle);
+          if (!handle || post.authorHandle === handle) {
+            matchingPosts.push(post);
           }
         }
       } catch (e) {

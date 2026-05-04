@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-"Daily Doodles" is a full-stack application for collecting and displaying art posts from Bluesky with the #DailyDoodle hashtag. The system consists of:
+"Watches" is a full-stack application for collecting and displaying art posts from Bluesky with the #YourTag hashtag. The system consists of:
 
-1. **Listener Service** (Node.js/TypeScript) - Monitors Bluesky for #DailyDoodle posts
-2. **Frontend** (Next.js/React) - Web interface for displaying collected doodles 
+1. **Listener Service** (Node.js/TypeScript) - Monitors Bluesky for #YourTag posts
+2. **Frontend** (Next.js/React) - Web interface for displaying collected posts 
 3. **Redis** - Data storage for posts and session management
 4. **Docker Compose** - Orchestrates all services
 
@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Listener Service
 - `npm run start` - Start the main listener service
-- `npm run backfill` - Import hardcoded list of existing doodle posts
+- `npm run backfill` - Import hardcoded list of existing posts
 - `npm run backfill-facets` - Re-fetch Bluesky `facets` for legacy posts so the post page can render full URLs / clickable hashtags / mentions. Idempotent; supports `--dry-run` and `--force`.
 - `npm run classify-existing` - Walk every stored post chronologically and run the watch classifier (see `watch-classifier/`) to populate `__doodles:watch-meta` and `__doodles:watch-canonical`. Idempotent; supports `--dry-run` and `--force`. Requires the `claude` CLI on PATH.
 - `npm run apply-overrides` - Apply manual classification overrides from `__doodles:watch-overrides` and rebuild the canonical list. Pure Redis, no Claude calls. Supports `--dry-run`.
@@ -37,10 +37,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Listener Service Architecture:**
 - Uses `@atproto/api` to interact with Bluesky's AT Protocol
-- Polls Bluesky search API every ~5 minutes (configurable via `DOODLE_POLLING_FREQ_SECONDS`)
+- Polls Bluesky search API every ~5 minutes (configurable via `POLLING_FREQ_SECONDS`)
 - Maintains session persistence in Redis to avoid re-authentication
 - Supports multiple simultaneous filters including all users and specific handles
-- Creates separate `DoodlePost` entries for each image in multi-image posts
+- Creates separate `Post` entries for each image in multi-image posts
 - Uses Redis sets to track processed URIs and avoid duplicates
 - Uses separate Redis prefixes for each mode to keep data isolated
 
@@ -55,7 +55,7 @@ type Facet = {
   >;
 };
 
-type DoodlePost = {
+type Post = {
   uri: string,           // Format: "at://did/app.bsky.feed.post/id#imageN"
   authorHandle: string,
   authorDisplayName: string,
@@ -68,12 +68,12 @@ type DoodlePost = {
 ```
 
 **Redis Prefixes:**
-- `all-doodles:*` - All #DailyDoodle posts from any user (filters NSFW)
+- `all-doodles:*` - All #YourTag posts from any user (filters NSFW)
 - `doodles:*` - Only posts from ryanjoseph.dev
 - `doodles-kaciecamilli:*` - Posts from kaciecamilli.bsky.social
 
 Each prefix maintains:
-- `posts` - List of serialized DoodlePost objects
+- `posts` - List of serialized Post objects
 - `processed-uris` - Set of processed post/image URIs  
 - `saved-session` - Bluesky session data for persistence
 - `last-seen-post` - URI of most recent processed post (search optimization)
@@ -87,7 +87,7 @@ Each prefix maintains:
 - `app.bsky.embed.recordWithMedia#view` - Quote posts with media
 - `app.bsky.embed.video#view` - Video thumbnails
 
-**Backfill Process:** The `backfill.ts` script processes hardcoded post URLs to import pre-hashtag doodles. It clears existing data and rebuilds from scratch.
+**Backfill Process:** The `backfill.ts` script processes hardcoded post URLs to import pre-hashtag posts. It clears existing data and rebuilds from scratch.
 
 **Polling Strategy:** Searches in batches until finding the last seen post, with safety limits to prevent infinite loops. On first run, only processes the latest batch.
 
@@ -99,7 +99,7 @@ Required:
 - `REDIS_URL` - Redis connection string (defaults to `redis://localhost:6379`)
 
 Optional:
-- `DOODLE_POLLING_FREQ_SECONDS` - Polling interval (default: 300)
+- `POLLING_FREQ_SECONDS` - Polling interval (default: 300)
 
 ## Development Workflow
 

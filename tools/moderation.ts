@@ -2,7 +2,7 @@
 
 import { Redis } from 'ioredis';
 
-type DoodlePost = {
+type Post = {
   uri: string,
   authorHandle: string,
   authorDisplayName: string,
@@ -12,21 +12,21 @@ type DoodlePost = {
   postUrl: string,
 };
 
-// No longer need multiple prefixes - everything is in all-doodles
+// No longer need multiple prefixes - everything is in all-posts
 function getPrefix(): string {
-  return 'all-doodles';
+  return 'all-posts';
 }
 
-async function findPostInRedis(redis: Redis, postId: string): Promise<DoodlePost[]> {
+async function findPostInRedis(redis: Redis, postId: string): Promise<Post[]> {
   const prefix = getPrefix();
   const postsKey = `${prefix}:posts`;
   const postsList = await redis.lrange(postsKey, 0, -1);
   
-  const matchingPosts: DoodlePost[] = [];
+  const matchingPosts: Post[] = [];
   
   for (const postJson of postsList) {
     try {
-      const post: DoodlePost = JSON.parse(postJson);
+      const post: Post = JSON.parse(postJson);
       
       // Check if this post's URI contains the postId
       // Handle both regular URIs and multi-image URIs (#image0, #image1, etc)
@@ -56,7 +56,7 @@ async function deletePostFromRedis(redis: Redis, postId: string, imageNumber?: n
   
   postsList.forEach((postJson) => {
     try {
-      const post: DoodlePost = JSON.parse(postJson);
+      const post: Post = JSON.parse(postJson);
       
       // Check if this post's URI contains the postId
       if (post.uri.includes(`/${postId}`) || post.uri.includes(`/${postId}#`)) {

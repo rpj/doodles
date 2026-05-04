@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 
-type DoodlePost = {
+type Post = {
   uri: string,
   authorHandle: string,
   authorDisplayName: string,
@@ -36,7 +36,7 @@ async function buildReverseIndex() {
     
     allPosts.forEach((postJson, index) => {
       try {
-        const post: DoodlePost = JSON.parse(postJson);
+        const post: Post = JSON.parse(postJson);
         if (!handleToIndices[post.authorHandle]) {
           handleToIndices[post.authorHandle] = [];
         }

@@ -12,7 +12,7 @@ type Facet = {
   features: FacetFeature[];
 };
 
-type DoodlePost = {
+type Post = {
   uri: string,
   authorHandle: string,
   authorDisplayName: string,
@@ -29,32 +29,32 @@ async function backfillMissing() {
   console.log('Backfilling missing ryanjoseph.dev posts...\n');
   
   // Get all posts from doodles:posts (which has the complete set)
-  const doodlesPosts = await redis.lrange('doodles:posts', 0, -1);
-  console.log(`Found ${doodlesPosts.length} total posts in doodles:posts`);
+  const postsList = await redis.lrange('doodles:posts', 0, -1);
+  console.log(`Found ${postsList.length} total posts in doodles:posts`);
   
   // Get current posts in all-doodles:posts
-  const allDoodlesPosts = await redis.lrange('all-doodles:posts', 0, -1);
+  const allPostsList = await redis.lrange('all-doodles:posts', 0, -1);
   const existingUris = new Set<string>();
   
-  for (const postStr of allDoodlesPosts) {
+  for (const postStr of allPostsList) {
     try {
-      const post: DoodlePost = JSON.parse(postStr);
+      const post: Post = JSON.parse(postStr);
       existingUris.add(post.uri);
     } catch (e) {
       // Skip invalid posts
     }
   }
   
-  console.log(`Found ${allDoodlesPosts.length} posts in all-doodles:posts`);
+  console.log(`Found ${allPostsList.length} posts in all-doodles:posts`);
   console.log(`Found ${existingUris.size} unique URIs in all-doodles:posts\n`);
   
   // Process each post from doodles:posts
   let addedCount = 0;
-  const missingPosts: DoodlePost[] = [];
+  const missingPosts: Post[] = [];
   
-  for (const postStr of doodlesPosts) {
+  for (const postStr of postsList) {
     try {
-      const post: DoodlePost = JSON.parse(postStr);
+      const post: Post = JSON.parse(postStr);
       
       // Check if this post is missing from all-doodles:posts
       if (!existingUris.has(post.uri)) {

@@ -1,6 +1,6 @@
-# Daily Doodles
+# Watches
 
-A full-stack application that collects and displays art posts from Bluesky tagged with a configurable hashtag (defaults to #DailyDoodle). Features real-time monitoring, multi-user support, RSS feeds, and an Art Deco-inspired gallery interface.
+A full-stack application that collects and displays art posts from Bluesky tagged with a configurable hashtag (defaults to #YourTag). Features real-time monitoring, multi-user support, RSS feeds, and an Art Deco-inspired gallery interface.
 
 ## Architecture
 
@@ -34,8 +34,8 @@ A full-stack application that collects and displays art posts from Bluesky tagge
 2. **Configure User Filters** (Runtime - No Rebuild Required)
    ```bash
    # Add users to track (handle -> redis prefix mapping)
-   redis-cli HSET __doodles:users artist.bsky.social artist-doodles
-   redis-cli HSET __doodles:users creative.bsky.social creative-doodles
+   redis-cli HSET __doodles:users artist.bsky.social artist-posts
+   redis-cli HSET __doodles:users creative.bsky.social creative-posts
    
    # View current configuration
    redis-cli HGETALL __doodles:users
@@ -86,7 +86,7 @@ which the post page uses to render full inline URLs / clickable hashtags /
 mentions. Posts ingested before this feature was added store a truncated
 text without facets. Run `npm run backfill-facets` once to re-fetch every
 known post from Bluesky's public API and stamp the original facets onto
-the stored DoodlePost record. Idempotent (only fetches posts missing the
+the stored Post record. Idempotent (only fetches posts missing the
 field); add `--force` to re-fetch unconditionally; add `--dry-run` to
 preview without writing.
 
@@ -224,7 +224,7 @@ checked first on every classify call).
 
 ### Troubleshooting
 
-**Symptom: gallery shows no Stats strip; `/api/watch-stats` returns `{uniqueCount: 0, brandCount: 0, byBrand: []}` even though "First appeared" links work and `/api/doodles?brand=...` filters work.**
+**Symptom: gallery shows no Stats strip; `/api/watch-stats` returns `{uniqueCount: 0, brandCount: 0, byBrand: []}` even though "First appeared" links work and `/api/posts?brand=...` filters work.**
 
 Diagnosis: `__doodles:watch-meta` is populated but `__doodles:watch-canonical` is empty. The Stats component renders nothing when `uniqueCount === 0`. The two API paths that DO work read meta directly and bypass the canonical list.
 
@@ -279,9 +279,9 @@ npx ts-node moderation.ts <postId> --delete
 
 **Optional:**
 - `REDIS_URL` - Redis connection string (default: `redis://localhost:6379`)
-- `DOODLE_POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
-- `HASHTAG_TO_WATCH` - Hashtag to monitor (default: `#DailyDoodle`). Include the # prefix.
-- `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit the collection to. Used to drive the "Generated automatically from @handle" subtitle on the gallery (the first handle in the list).
+- `POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
+- `HASHTAG_TO_WATCH` - Hashtag to monitor (default: `#YourTag`). Include the # prefix.
+- `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit the collection to. First handle in the list is shown as the deployment owner on the gallery.
 - `SITE_TITLE` - Human-readable wordmark for the gallery masthead (e.g. `Ryan's Watches`). Falls back to the hashtag itself when unset.
 - `WATCH_CLASSIFIER_MODEL` - Claude model the watch classifier uses (default: `sonnet`). Set to `haiku` for cheaper / noisier classification.
 - `DISABLE_AUTOUPDATER` - Set to `1` in the listener container so `claude` doesn't run the auto-update check on every invocation. Already set in `listener/Dockerfile`.
@@ -293,7 +293,7 @@ User filters are managed at runtime via Redis hash `__doodles:users`:
 
 ```bash
 # Add new user
-redis-cli HSET __doodles:users artist.bsky.social artist-doodles
+redis-cli HSET __doodles:users artist.bsky.social artist-posts
 
 # Remove user  
 redis-cli HDEL __doodles:users artist.bsky.social
@@ -349,7 +349,7 @@ type Facet = {
   >;
 };
 
-type DoodlePost = {
+type Post = {
   uri: string;           // "at://did/app.bsky.feed.post/id#imageN"
   authorHandle: string;
   authorDisplayName: string;
@@ -362,7 +362,7 @@ type DoodlePost = {
 ```
 
 ### Multi-Image Handling
-Posts with multiple images are split into separate `DoodlePost` entries:
+Posts with multiple images are split into separate `Post` entries:
 - Original post: `at://did/app.bsky.feed.post/abc123`
 - Image 1: `at://did/app.bsky.feed.post/abc123#image0`
 - Image 2: `at://did/app.bsky.feed.post/abc123#image1`
@@ -378,7 +378,7 @@ This enables individual image routing and display.
 - `user-[handle]:*` - Posts from unconfigured users (fallback)
 
 **Keys per prefix:**
-- `posts` - List of serialized DoodlePost objects (chronological)
+- `posts` - List of serialized Post objects (chronological)
 - `processed-uris` - Set of processed post/image URIs (deduplication)
 - `saved-session` - Bluesky session data (authentication persistence)
 - `last-seen-post` - Most recent post URI (search optimization)
@@ -390,7 +390,7 @@ This enables individual image routing and display.
 ## Frontend Features
 
 ### Routing
-- `/` - All doodles gallery with 5-minute auto-refresh
+- `/` - All posts gallery with 5-minute auto-refresh
 - `/[handle]` - User-specific galleries (e.g., `/ryanjoseph.dev`)
 - `/post/[id]` - Individual post pages with back navigation
 - `/[handle]/post/[id]` - User-scoped post pages
@@ -412,7 +412,7 @@ This enables individual image routing and display.
 ## Listener Features
 
 ### Post Processing
-- **Hashtag Detection**: Searches for the configured hashtag in post text (defaults to #DailyDoodle)
+- **Hashtag Detection**: Searches for the configured hashtag in post text (defaults to #YourTag)
 - **Image Extraction**: Supports multiple Bluesky embed types
 - **NSFW Filtering**: Skips posts with #nsfw, #noindex tags or sexual content labels
 - **Multi-User Fanout**: Single post search fans out to multiple Redis prefixes
@@ -489,9 +489,9 @@ npm run dev
 ## API Reference
 
 ### Frontend API Endpoints
-- `GET /api/doodles` - All doodles
-- `GET /api/doodles?handle=ryanjoseph.dev` - User-specific doodles
-- `GET /rss.xml` - RSS feed (all doodles)
+- `GET /api/posts` - All posts
+- `GET /api/posts?handle=ryanjoseph.dev` - User-specific posts
+- `GET /rss.xml` - RSS feed (all posts)
 - `GET /rss.xml?handle=ryanjoseph.dev` - User-specific RSS feed
 
 ### Redis Commands
@@ -523,7 +523,7 @@ The system simultaneously tracks:
 - **Fallback**: Unconfigured users default to `user-[handle]:*` prefix
 
 ### Hashtag Configuration
-The hashtag to monitor is configured via the `HASHTAG_TO_WATCH` environment variable (defaults to `#DailyDoodle`). This allows you to track any hashtag on Bluesky:
+The hashtag to monitor is configured via the `HASHTAG_TO_WATCH` environment variable (defaults to `#YourTag`). This allows you to track any hashtag on Bluesky:
 
 ```bash
 # Watch a different hashtag
@@ -564,7 +564,7 @@ PORT=8080 npm run dev
 redis-cli ping
 
 # View all Redis keys
-redis-cli KEYS "*doodles*"
+redis-cli KEYS "*posts*"
 
 # Monitor listener logs
 docker-compose logs -f listener

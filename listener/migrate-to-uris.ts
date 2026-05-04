@@ -12,7 +12,7 @@ type Facet = {
   features: FacetFeature[];
 };
 
-type DoodlePost = {
+type Post = {
   uri: string,
   authorHandle: string,
   authorDisplayName: string,
@@ -36,7 +36,7 @@ async function migrateToUris() {
   let migratedCount = 0;
   for (let i = 0; i < allPosts.length; i++) {
     try {
-      const post: DoodlePost = JSON.parse(allPosts[i]);
+      const post: Post = JSON.parse(allPosts[i]);
       
       // Store the post with its URI as key
       await redis.set(`post:${post.uri}`, allPosts[i]);
@@ -75,7 +75,7 @@ async function migrateToUris() {
       const index = parseInt(indexStr);
       if (!isNaN(index) && index >= 0 && index < allPosts.length) {
         try {
-          const post: DoodlePost = JSON.parse(allPosts[index]);
+          const post: Post = JSON.parse(allPosts[index]);
           uris.push(post.uri);
         } catch (e) {
           console.error(`Failed to parse post at index ${index} for handle ${handle}`);
