@@ -46,12 +46,21 @@ export default async function handler(
     // Check if grouping should be applied (when HANDLES_TO_WATCH is set)
     const shouldGroup = !!(process.env.HANDLES_TO_WATCH && process.env.HANDLES_TO_WATCH.trim().length > 0);
 
+    // Optional brand filter — joins against the watch-classifier canonical
+    // list to show one card per unique watch of that brand. Lightly
+    // sanitized (length cap, drop suspicious chars) since this string is
+    // matched case-insensitively against stored brand strings.
+    const rawBrand = (req.query.brand as string | undefined)?.trim();
+    const brand = rawBrand && rawBrand.length > 0 && rawBrand.length <= 64
+      ? rawBrand.replace(/[^\p{L}\p{N}\s.&'-]/gu, '')
+      : undefined;
+
     if (paginate) {
-      const result = await getDoodles(handle || undefined, page, pageSize, shouldGroup);
+      const result = await getDoodles(handle || undefined, page, pageSize, shouldGroup, brand);
       res.status(200).json(result);
     } else {
       // Backward compatibility - return all doodles as array
-      const result = await getDoodles(handle || undefined, 1, -1, shouldGroup);
+      const result = await getDoodles(handle || undefined, 1, -1, shouldGroup, brand);
       res.status(200).json(result.doodles);
     }
   } catch (error) {

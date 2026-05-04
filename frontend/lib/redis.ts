@@ -31,6 +31,38 @@ export type DoodlePost = {
   facets?: Facet[];
 };
 
+export type WatchKind = 'unique-watch' | 'follow-on' | 'family' | 'event' | 'other';
+
+export interface WatchMeta {
+  kind: WatchKind;
+  brand: string | null;
+  model: string | null;
+  references_post_id: string | null;
+  confidence: number;
+  classified_at: string;
+}
+
+export interface CanonicalEntry {
+  post_id: string;
+  brand: string;
+  model: string;
+}
+
+export interface BrandCount {
+  brand: string;
+  count: number;
+}
+
+export interface WatchStats {
+  uniqueCount: number;
+  brandCount: number;
+  postCount: number;
+  byBrand: BrandCount[];
+}
+
+const WATCH_META_KEY = '__doodles:watch-meta';
+const WATCH_CANONICAL_KEY = '__doodles:watch-canonical';
+
 export async function getCustomUsers(): Promise<string[]> {
   const client = getRedisClient();
   // Get all handles that have posted
@@ -50,7 +82,8 @@ export async function getDoodles(
   handle?: string,
   page: number = 1,
   pageSize: number = 50,
-  shouldGroup: boolean = false
+  shouldGroup: boolean = false,
+  brand?: string
 ): Promise<PaginatedDoodles> {
   const client = getRedisClient();
 
@@ -149,6 +182,30 @@ export async function getDoodles(
     allDoodles = await applyHeroOverrides(client, allDoodles);
   }
 
+  // Filter by brand if requested. We match against the canonical list so the
+  // gallery shows one card per unique watch of that brand (follow-on cards
+  // for that brand are intentionally excluded — the post page links back to
+  // the canonical via "First appeared").
+  if (brand) {
+    const canonicalRaw = await client.lrange(WATCH_CANONICAL_KEY, 0, -1);
+    const matchingPostIds = new Set<string>();
+    const target = brand.toLowerCase();
+    for (const raw of canonicalRaw) {
+      try {
+        const c = JSON.parse(raw) as CanonicalEntry;
+        if (c.brand.toLowerCase() === target) {
+          matchingPostIds.add(c.post_id);
+        }
+      } catch {
+        // skip
+      }
+    }
+    allDoodles = allDoodles.filter(d => {
+      const m = d.uri.match(/\/app\.bsky\.feed\.post\/([^#]+)/);
+      return m ? matchingPostIds.has(m[1]) : false;
+    });
+  }
+
   // Apply pagination to sorted (and possibly grouped) results
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
@@ -167,6 +224,54 @@ export async function getDoodles(
 export async function getAllDoodles(handle?: string): Promise<DoodlePost[]> {
   const result = await getDoodles(handle, 1, -1);
   return result.doodles;
+}
+
+/**
+ * Read the watch-classifier metadata for a single base post ID. Returns null
+ * if the classifier hasn't run on this post yet.
+ */
+export async function getWatchMeta(basePostId: string): Promise<WatchMeta | null> {
+  const client = getRedisClient();
+  const raw = await client.hget(WATCH_META_KEY, basePostId);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as WatchMeta;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Aggregate stats across the watch-classifier output: total unique watches
+ * (canonical-list size), unique brand count, total classified post count,
+ * and per-brand counts (sorted desc by count, then brand name asc).
+ */
+export async function getWatchStats(): Promise<WatchStats> {
+  const client = getRedisClient();
+
+  const canonicalRaw = await client.lrange(WATCH_CANONICAL_KEY, 0, -1);
+  const brandCounts = new Map<string, number>();
+  for (const raw of canonicalRaw) {
+    try {
+      const c = JSON.parse(raw) as CanonicalEntry;
+      brandCounts.set(c.brand, (brandCounts.get(c.brand) ?? 0) + 1);
+    } catch {
+      // skip
+    }
+  }
+
+  const postCount = await client.hlen(WATCH_META_KEY);
+
+  const byBrand: BrandCount[] = [...brandCounts.entries()]
+    .map(([brand, count]) => ({ brand, count }))
+    .sort((a, b) => (b.count - a.count) || a.brand.localeCompare(b.brand));
+
+  return {
+    uniqueCount: canonicalRaw.length,
+    brandCount: brandCounts.size,
+    postCount,
+    byBrand,
+  };
 }
 
 // Reorder imageUrls so the override-selected image becomes the gallery preview
