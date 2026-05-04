@@ -33,6 +33,15 @@ async function main() {
   console.log(`classify-existing ${DRY_RUN ? '(dry-run)' : ''} ${FORCE ? '(force)' : ''}`.trim());
   const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
+  // --force re-classifies every post from scratch. The canonical list must
+  // be cleared first or stale entries (including each post's own canonical
+  // from the prior run) leak into the new prompt context, causing posts to
+  // match themselves as follow-ons.
+  if (FORCE && !DRY_RUN) {
+    const cleared = await redis.del('__doodles:watch-canonical');
+    if (cleared) console.log('Cleared __doodles:watch-canonical (force mode)');
+  }
+
   const total = await redis.llen('all-doodles:posts');
   console.log(`Walking ${total} entries from all-doodles:posts (oldest first)`);
 

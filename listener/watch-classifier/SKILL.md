@@ -60,34 +60,6 @@ Set `brand` and `model` to the matching canonical entry's values, and set `refer
 - An "@mention" of another user usually indicates the post is about that user's watch (event/collection commentary), often `other` or `event`.
 - Trigger hashtags such as `#RyansWatches` are noise; ignore them.
 
-## What counts as a follow-on vs a new variant
-
-A `follow-on` is the **same physical watch** reappearing in a new context — a band/strap swap, a wrist shot of an already-canonicalized piece, a casual "wearing it again". The watch's reference / colorway / dial / case finish is identical to the canonical entry.
-
-A different **variant** of the same brand and line — a different colorway, different dial, different case finish, a separate limited edition — is a **new `unique-watch`**, not a follow-on. The canonical list pairs `(brand, model)` strings, so a brand-line match alone is not enough; the model strings must refer to the same physical piece.
-
-Examples:
-
-- Canonical contains `Brew / Metric Retro Dial`. New post about a "Brew Metric Chromatik" or "Brew Metric PVD Black" → `kind: unique-watch`, `model: "Metric Chromatik"` / `"Metric PVD Black"`. **Not** a follow-on.
-- Canonical contains `Tudor / Black Bay 58 Blue`. New post about a "Tudor Black Bay 58 Bronze" → `kind: unique-watch`. Different variant.
-- Canonical contains `Seiko / Yuto Horigome`. New post says "swapped the strap on the Horigome" → `kind: follow-on`, `references_post_id` set to the canonical's `post_id`. Same watch, new strap.
-
-When the prose explicitly says "new", "just got", "picked up", "added to the collection", or names a distinguishing variant identifier (specific colorway, dial pattern, reference number, finish) that doesn't match an existing canonical's `model`, prefer `unique-watch`.
-
-## Event vs family disambiguation
-
-`family` is the author's personal watches together — collection lineup, "the family", case shot, "what's on the bench", "the lineup". No external context. The author owns all the watches shown.
-
-`event` is about an external event, exhibition, store, or industry context — WindUp Watch Fair, store visits, brand drops/announcements, a friend's or collector's pieces, news. Often features venue, signage, displays, or watches the author does not own. The post is *about the event* rather than about a single piece in the author's collection.
-
-If you see external venue cues, brand-launch language ("just dropped", "available now"), event names, or commentary on someone else's collection, lean `event` over `family`.
-
-## Multi-image posts with a collection shot
-
-A post primarily describing a **single new acquisition** that happens to include one collection / family photo for context (often the last image, or with prose like "added to the lineup") is still `unique-watch`. Use the **prose** as the primary signal — if the text describes one specific watch in detail (its dial, its origin story, what makes it special), classify as `unique-watch` regardless of supporting collection imagery.
-
-`family` should be reserved for posts whose primary subject is the collection itself, not posts that show a collection photo as context for a single new piece.
-
 ## Reminder
 
 Output the JSON object only. No surrounding text, no explanation, no markdown fences.
