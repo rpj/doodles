@@ -70,10 +70,13 @@ npm run lint          # ESLint
 
 ### Listener Service (./listener/)
 ```bash
-npm install           # Install dependencies
-npm run start         # Start listener service
-npm run backfill      # Import hardcoded historical posts
-npm run backfill-facets  # Re-fetch facets (rich-text URIs/tags/mentions) for legacy posts
+npm install                 # Install dependencies
+npm run start               # Start listener service
+npm run backfill            # Import hardcoded historical posts
+npm run backfill-facets     # Re-fetch facets (rich-text URIs/tags/mentions) for legacy posts
+npm run classify-existing   # Run the watch classifier on un-classified posts (see below)
+npm run apply-overrides     # Apply manual overrides + rebuild canonical (no Claude calls)
+npm run watch-stats         # Read-only summary of classifier output
 ```
 
 **Backfilling rich text on legacy posts:**
@@ -93,7 +96,9 @@ Each post the listener stores is also fed through a Claude-powered
 classifier that decides whether the post is a unique watch, a follow-on
 ("band upgrade", "wearing it again"), a family/collection shot, an event
 post, or other; and extracts brand + model. Used to deduplicate fuzzy
-plain-text descriptions for the upcoming stats / by-brand filter UI.
+plain-text descriptions and drive the per-brand stats / filter UI on the
+gallery, plus the "First appeared →" link from a follow-on post back to
+its canonical.
 
 The skill lives at `listener/watch-classifier/SKILL.md` (version-controlled
 in this repo) and is also symlinked from `~/.claude/skills/watch-classifier`
@@ -204,6 +209,53 @@ output across the board, run `npm run classify-existing -- --force` — that
 re-classifies every post from scratch (overrides remain in effect; they're
 checked first on every classify call).
 
+### Mental Model: Which Command, When?
+
+| Command | What it does | Cost | When to use |
+|---|---|---|---|
+| `classify-existing` | Walks every post in `all-doodles:posts`, classifies any missing from `watch-meta`. Skips already-classified posts. | Tokens (Claude calls — Sonnet by default) | First-time bootstrap on a Redis with no prior classification, or after the listener was offline / running without `claude` and posts piled up un-classified. |
+| `classify-existing -- --force` | Re-classifies **every** post from scratch. Clears the canonical list at start, rebuilds it incrementally. | Full corpus token cost | Only after editing `SKILL.md` and wanting a fresh corpus-wide pass. **Don't kill mid-run** — leaves canonical partial; recover with `apply-overrides`. |
+| `apply-overrides` | Pure Redis. Copies `watch-overrides` into `watch-meta`, rebuilds `watch-canonical` from existing meta by walking `all-doodles:posts` chronologically. | Free, instantaneous | After setting / removing an override; also after any of the failure modes below. |
+| `watch-stats` | Read-only summary of classifier output. Flags: `--low-confidence`, `--list-other`. | Free | Sanity-check classifier output and find entries that need a manual override. |
+
+**Overrides persist across all of the above** — they're consulted first on every `classifyAndRecord` call, and `apply-overrides` always re-applies them on top of meta. Setting an override is "sticky"; you can re-classify or rebuild canonical as much as you want without losing your manual corrections.
+
+**Inline classification** runs synchronously inside `processPost` for every new post the listener captures — no scheduling needed. New posts go from Bluesky → listener → classified + meta + canonical entry, all in one polling cycle.
+
+### Troubleshooting
+
+**Symptom: gallery shows no Stats strip; `/api/watch-stats` returns `{uniqueCount: 0, brandCount: 0, byBrand: []}` even though "First appeared" links work and `/api/doodles?brand=...` filters work.**
+
+Diagnosis: `__doodles:watch-meta` is populated but `__doodles:watch-canonical` is empty. The Stats component renders nothing when `uniqueCount === 0`. The two API paths that DO work read meta directly and bypass the canonical list.
+
+Common cause: a `classify-existing -- --force` run that was killed before it finished. The start of `--force` clears the canonical list and rebuilds it incrementally as it processes each post; an early kill leaves canonical at zero (or nearly so) while meta still has the prior good entries.
+
+Fix: `cd listener && npm run apply-overrides` rebuilds canonical from existing meta in seconds. No Claude calls.
+
+**Symptom: listener log shows "Watch classification failed" for every new post.**
+
+The `claude` CLI isn't on PATH inside the listener container, or `ANTHROPIC_API_KEY` didn't propagate. The listener fail-soft path keeps storing posts; classification just stays empty until the deploy is fixed. See "Claude Code in the listener container" below.
+
+### Claude Code in the listener container
+
+The inline classifier shells out to `claude -p`. The listener Dockerfile installs `@anthropic-ai/claude-code` globally (pinned version) and sets `DISABLE_AUTOUPDATER=1` so the daemon doesn't pay the auto-update check on every invocation. `docker-compose.yml` propagates two env vars from the host:
+
+- `ANTHROPIC_API_KEY` (required) — headless auth path. With this set, `claude -p` skips the OAuth/onboarding flow that would otherwise block the daemon. Set it in your shell or `.env` before `docker compose up`.
+- `WATCH_CLASSIFIER_MODEL` (optional, defaults to `sonnet`) — which Claude model to call. Lets you swap to `haiku` for cheaper-but-noisier classification without rebuilding.
+
+To validate the in-container setup, shell in and run a smoke test:
+
+```bash
+docker compose run --rm --entrypoint /bin/bash listener
+# Inside the container:
+which claude && claude --version
+echo "$ANTHROPIC_API_KEY" | head -c 8 ; echo "…"
+claude -p --output-format json --model sonnet \
+  'Output JSON only, no fences: {"hello":"world"}'
+```
+
+If the JSON envelope comes back with a `result` field, the listener will classify cleanly on every new post.
+
 ### Tools (./tools/)
 ```bash
 # Query specific post data
@@ -223,6 +275,7 @@ npx ts-node moderation.ts <postId> --delete
 **Required:**
 - `BLUESKY_IDENT` - Bluesky username/handle
 - `BLUESKY_PASS` - Bluesky app password
+- `ANTHROPIC_API_KEY` - Required for the inline watch classifier. The listener calls `claude -p` per post; without this var, classification fails-soft (post still stored, no `watch-meta` entry written).
 
 **Optional:**
 - `REDIS_URL` - Redis connection string (default: `redis://localhost:6379`)
@@ -230,6 +283,8 @@ npx ts-node moderation.ts <postId> --delete
 - `HASHTAG_TO_WATCH` - Hashtag to monitor (default: `#DailyDoodle`). Include the # prefix.
 - `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit the collection to. Used to drive the "Generated automatically from @handle" subtitle on the gallery (the first handle in the list).
 - `SITE_TITLE` - Human-readable wordmark for the gallery masthead (e.g. `Ryan's Watches`). Falls back to the hashtag itself when unset.
+- `WATCH_CLASSIFIER_MODEL` - Claude model the watch classifier uses (default: `sonnet`). Set to `haiku` for cheaper / noisier classification.
+- `DISABLE_AUTOUPDATER` - Set to `1` in the listener container so `claude` doesn't run the auto-update check on every invocation. Already set in `listener/Dockerfile`.
 - `PORT` - Frontend server port (default: 3000)
 
 ### User Filter Management
