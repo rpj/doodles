@@ -228,7 +228,11 @@ export default function Home({
                   post={post}
                   customUsers={customUsers}
                   serverHashtag={serverHashtag}
-                  priority={index === 0}
+                  // First-row LCP: a 3-column desktop grid paints all three
+                  // first-row images near-simultaneously, so any of them can
+                  // win the LCP race. Mark all three so whichever the
+                  // browser picks already has high priority.
+                  priority={index < 3}
                 />
               ))}
             </div>

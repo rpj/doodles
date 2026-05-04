@@ -186,7 +186,11 @@ export default function HandlePage({ handle: serverHandle, serverHashtag, server
             {(currentPage === 1 ? posts.slice(1) : posts).length > 0 && (
               <div className={styles.grid}>
                 {(currentPage === 1 ? posts.slice(1) : posts).map((post, index) => (
-                  <WatchCard key={post.uri} post={post} userHandle={handleStr} serverHashtag={serverHashtag} priority={currentPage > 1 && index === 0} />
+                  // On page 2+, mark the first 3 cards as priority so
+                  // whichever wins the LCP race in a 3-column grid is
+                  // already preloaded. On page 1 the hero card carries
+                  // priority and the grid is below the fold.
+                  <WatchCard key={post.uri} post={post} userHandle={handleStr} serverHashtag={serverHashtag} priority={currentPage > 1 && index < 3} />
                 ))}
               </div>
             )}
