@@ -6,13 +6,23 @@
 
 .pricing {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.25rem;
+  flex-direction: column;
+  gap: 0.375rem;
   margin: 0 0 1.75rem;
   padding: 0.75rem 1.125rem;
   border: 1px solid var(--hairline);
   background: transparent;
+}
+
+/* eBay sub-row — recreates the previous single-row flex behavior so the
+   count/range/link layout is unchanged when only eBay data is present.
+   When both product price and eBay data render, this row stacks below the
+   product line via the parent's column flex. */
+.ebayRow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
 }
 
 .eyebrow {
@@ -71,9 +81,51 @@
   border-bottom-color: var(--accent-color);
 }
 
+/* Product price (manufacturer JSON-LD scrape). Sits to the left of the eBay
+   row when both are present; stands alone otherwise. The price itself reads
+   like the eBay range; "at <domain> →" wears the eyebrow's small-caps
+   styling so it visually groups with the rest of the widget. */
+.productLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.productPrice {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  font-feature-settings: 'tnum';
+  color: var(--text-color);
+  white-space: nowrap;
+}
+
+.productAt {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-color);
+  border-bottom: 1px solid var(--hairline-strong);
+  padding-bottom: 1px;
+  transition: color 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.productLink:hover .productAt {
+  color: var(--accent-hover);
+  border-bottom-color: var(--accent-color);
+}
+
 @media (max-width: 640px) {
   .pricing {
     padding: 0.625rem 1rem;
+  }
+  .ebayRow {
     gap: 0.375rem 0.75rem;
   }
   .summary {

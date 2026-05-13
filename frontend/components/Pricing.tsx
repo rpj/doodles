@@ -9,6 +9,14 @@ interface Sample {
   condition?: string;
 }
 
+interface ProductPrice {
+  value: number;
+  currency: string;
+  productUrl: string;
+  productDomain: string;
+  fetchedAt: string;
+}
+
 interface PricingData {
   count: number;
   minPrice: number | null;
@@ -19,11 +27,14 @@ interface PricingData {
   env: 'sandbox' | 'production';
   query: string;
   fetchedAt: string;
+  productPrice: ProductPrice | null;
 }
 
 interface PricingProps {
-  brand: string;
-  model: string;
+  // basePostId of the post being priced. For follow-ons the caller resolves
+  // to the canonical's basePostId so overrides (search_query, product_url)
+  // are looked up on the canonical, not the follow-on.
+  postId: string;
 }
 
 function formatPrice(value: number, currency: string): string {
@@ -34,7 +45,7 @@ function formatPrice(value: number, currency: string): string {
   }).format(value);
 }
 
-export default function Pricing({ brand, model }: PricingProps) {
+export default function Pricing({ postId }: PricingProps) {
   const [data, setData] = useState<PricingData | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -44,7 +55,7 @@ export default function Pricing({ brand, model }: PricingProps) {
     setFailed(false);
     (async () => {
       try {
-        const params = new URLSearchParams({ brand, model });
+        const params = new URLSearchParams({ postId });
         const res = await fetch(`/api/pricing?${params.toString()}`);
         if (!res.ok) {
           if (!cancelled) setFailed(true);
@@ -59,10 +70,14 @@ export default function Pricing({ brand, model }: PricingProps) {
     return () => {
       cancelled = true;
     };
-  }, [brand, model]);
+  }, [postId]);
 
-  // Silent failure mode — no widget if no data, no listings, or upstream error.
-  if (failed || !data || data.count === 0) return null;
+  if (failed || !data) return null;
+
+  const hasEbay = data.count > 0;
+  const hasProduct = !!data.productPrice;
+  // Silent failure mode — if neither data source has anything to show, render nothing.
+  if (!hasEbay && !hasProduct) return null;
 
   const min = data.minPrice;
   const max = data.maxPrice;
@@ -72,30 +87,49 @@ export default function Pricing({ brand, model }: PricingProps) {
   const countLabel = data.count === 1 ? 'recent listing' : 'recent listings';
 
   return (
-    <aside className={styles.pricing} aria-label="Recent eBay listings">
-      <div className={styles.eyebrow}>
-        <span className={styles.count}>{data.count.toLocaleString('en-US')}</span>
-        {' '}
-        {countLabel}
-      </div>
-      {hasRange && (
-        <div className={styles.summary}>
-          <span className={styles.sep} aria-hidden="true">·</span>
-          <span className={styles.range}>
-            {sameValue
-              ? formatPrice(min!, data.currency)
-              : `${formatPrice(min!, data.currency)} – ${formatPrice(max!, data.currency)}`}
+    <aside className={styles.pricing} aria-label="Pricing">
+      {hasProduct && (
+        <a
+          href={data.productPrice!.productUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.productLink}
+        >
+          <span className={styles.productPrice}>
+            {formatPrice(data.productPrice!.value, data.productPrice!.currency)}
           </span>
+          <span className={styles.productAt}>
+            at {data.productPrice!.productDomain} →
+          </span>
+        </a>
+      )}
+      {hasEbay && (
+        <div className={styles.ebayRow}>
+          <div className={styles.eyebrow}>
+            <span className={styles.count}>{data.count.toLocaleString('en-US')}</span>
+            {' '}
+            {countLabel}
+          </div>
+          {hasRange && (
+            <div className={styles.summary}>
+              <span className={styles.sep} aria-hidden="true">·</span>
+              <span className={styles.range}>
+                {sameValue
+                  ? formatPrice(min!, data.currency)
+                  : `${formatPrice(min!, data.currency)} – ${formatPrice(max!, data.currency)}`}
+              </span>
+            </div>
+          )}
+          <a
+            href={data.searchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.link}
+          >
+            View all on eBay →
+          </a>
         </div>
       )}
-      <a
-        href={data.searchUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={styles.link}
-      >
-        View all on eBay →
-      </a>
     </aside>
   );
 }

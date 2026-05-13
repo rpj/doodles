@@ -56,9 +56,13 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
     .text.split('\n')[0]
     .trim();
 
+  const hasBrandModel = !!(watchMeta?.brand && watchMeta?.model);
+
   function title() {
-    const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
-    return (post?.text.split('\n')[0] || date) + (hashtagWithoutPrefix ? ` - #${hashtagWithoutPrefix}` : '');
+    const headingText = hasBrandModel
+      ? `${watchMeta!.brand} ${watchMeta!.model}`
+      : (post?.text.split('\n')[0] || format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy'));
+    return headingText + (hashtagWithoutPrefix ? ` - #${hashtagWithoutPrefix}` : '');
   }
 
   function cleanedText() {
@@ -66,9 +70,22 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
     // on the post page since every post here matched it.
     const stripped = stripTriggerHashtag(post!.text, post!.facets, hashtagWithoutPrefix);
 
-    // Lead the post page with the first line as an editorial h2, body below.
     // Split byte-correctly so facet offsets remain valid against each segment.
     const nlByte = findFirstNewlineByte(stripped.text);
+
+    if (hasBrandModel) {
+      // h2 comes from watchMeta (more reliable than the post's first
+      // line, which is often a parenthetical aside like "(Last of the
+      // backlog!)"). Body keeps the full original text so nothing gets
+      // dropped — the brand+model heading is additive, not a replacement
+      // for any post content.
+      return <>
+        <h2>{watchMeta!.brand} {watchMeta!.model}</h2>
+        <RichText text={stripped.text} facets={stripped.facets} />
+      </>;
+    }
+
+    // No brand/model — fall back to the editorial first-line-as-h2 style.
     if (nlByte < 0) {
       return <h2><RichText text={stripped.text} facets={stripped.facets} /></h2>;
     }
@@ -133,7 +150,13 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
 
             {watchMeta?.brand && watchMeta.model &&
               (watchMeta.kind === 'unique-watch' || watchMeta.kind === 'follow-on') && (
-                <Pricing brand={watchMeta.brand} model={watchMeta.model} />
+                <Pricing
+                  postId={
+                    watchMeta.kind === 'follow-on' && watchMeta.references_post_id
+                      ? watchMeta.references_post_id
+                      : basePostId
+                  }
+                />
               )}
 
             <div className={styles.imageContainer}>

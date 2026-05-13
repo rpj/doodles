@@ -75,9 +75,11 @@ Art Deco-inspired black/white design with metallic silver accents. Uses CSS cust
 - `BLUESKY_PASS` - Bluesky app password (required)
 - `REDIS_URL` - Redis connection string (defaults to redis://localhost:6379)
 - `POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
+- `PRICE_REFRESH_FREQ_SECONDS` - Cadence for refreshing manufacturer product prices via JSON-LD scrape (default: 21600 = 6h). See README "Pricing Overrides".
 - `HASHTAG_TO_WATCH` - The hashtag to monitor (default: #YourTag). Include the # prefix.
 - `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit collection.
 - `SITE_TITLE` - Human-readable wordmark for the gallery masthead. Falls back to the hashtag when unset.
+- `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_ENV` - eBay Browse API credentials for the per-post pricing widget. `EBAY_ENV` is `production` or `sandbox` (default: sandbox).
 - `PORT` - Frontend server port (default: 3000)
 
 ### Filter Configuration

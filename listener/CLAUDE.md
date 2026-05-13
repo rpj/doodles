@@ -18,7 +18,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run backfill` - Import hardcoded list of existing posts
 - `npm run backfill-facets` - Re-fetch Bluesky `facets` for legacy posts so the post page can render full URLs / clickable hashtags / mentions. Idempotent; supports `--dry-run` and `--force`.
 - `npm run classify-existing` - Walk every stored post chronologically and run the watch classifier (see `watch-classifier/`) to populate `__doodles:watch-meta` and `__doodles:watch-canonical`. Idempotent; supports `--dry-run` and `--force`. Requires the `claude` CLI on PATH.
-- `npm run apply-overrides` - Apply manual classification overrides from `__doodles:watch-overrides` and rebuild the canonical list. Pure Redis, no Claude calls. Supports `--dry-run`.
+- `npm run apply-overrides` - Apply manual classification overrides from `__doodles:watch-overrides` and rebuild the canonical list. Pure Redis + (if any override carries `product_url`) immediate fetches against those manufacturer pages to refresh `__doodles:product-prices`. No Claude calls. Supports `--dry-run`.
+- `npm run set-override -- <postId> <field> <value>` - Set a single partial-override field (`search_query` or `product_url`) on one post and apply it inline (writes to `__doodles:watch-meta` + fetches the product price). Skips canonical rebuild — only safe for the partial-override allow-list. Empty value clears the field.
+- `npm run fetch-prices` - Refresh `__doodles:product-prices` by re-fetching every `product_url` in `watch-meta` and extracting JSON-LD `Product.offers.price`. Supports `--post=<basePostId>`. Listener also runs this on its own cadence (`PRICE_REFRESH_FREQ_SECONDS`, default 6h).
 - `npm run watch-stats` - Read-only summary of classifier output (totals, by-brand counts, low-confidence list with `--low-confidence`, "other" entries with `--list-other`).
 
 ### Frontend
@@ -100,6 +102,7 @@ Required:
 
 Optional:
 - `POLLING_FREQ_SECONDS` - Polling interval (default: 300)
+- `PRICE_REFRESH_FREQ_SECONDS` - Manufacturer product-page price-refresh cadence (default: 21600 = 6h). The listener calls `refreshAllProductPrices` from inside the polling loop, throttled via `__doodles:product-prices:last-refresh`. Only does work if any `__doodles:watch-overrides` entries carry a `product_url`.
 
 ## Development Workflow
 

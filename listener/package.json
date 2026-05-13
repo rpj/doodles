@@ -8,6 +8,8 @@
     "backfill-facets": "npx ts-node backfill-facets.ts",
     "classify-existing": "npx ts-node classify-existing.ts",
     "apply-overrides": "npx ts-node apply-overrides.ts",
+    "set-override": "npx ts-node set-override.ts",
+    "fetch-prices": "npx ts-node fetch-product-prices.ts",
     "watch-stats": "npx ts-node watch-stats.ts",
     "clear-redis": "npx ts-node clear-redis.ts"
   },

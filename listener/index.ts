@@ -3,11 +3,19 @@ import { input } from '@inquirer/prompts';
 import { Redis } from 'ioredis';
 import { writeFile } from 'fs/promises';
 import { classifyAndRecord, getBasePostId } from './classify-post';
+import {
+  refreshAllProductPrices,
+  PRICES_LAST_REFRESH_KEY,
+} from './fetch-product-prices';
 
 const IDENT = process.env.BLUESKY_IDENT;
 const START_TS = Date.now();
 
 const POLLING_FREQ_SECONDS = Number.parseInt(process.env.POLLING_FREQ_SECONDS ?? '300'); // 5 minutes default
+// Cadence for refreshing product prices (JSON-LD scrape of manufacturer URLs
+// set via the `product_url` override). Default 6h — manufacturer prices
+// rarely move intra-day, and we don't want to hammer their pages.
+const PRICE_REFRESH_FREQ_SECONDS = Number.parseInt(process.env.PRICE_REFRESH_FREQ_SECONDS ?? '21600');
 
 // Hashtag to watch is required — no default. The listener has nothing to do
 // without one. Exit cleanly so the operator notices in container logs.
@@ -339,6 +347,25 @@ async function processPost(
   }
 }
 
+async function maybeRefreshProductPrices(redis: Redis): Promise<void> {
+  // Fail-soft: any error in the price refresh path must not break the
+  // primary post-polling loop.
+  try {
+    const lastRaw = await redis.get(PRICES_LAST_REFRESH_KEY);
+    const last = lastRaw ? Number(lastRaw) : 0;
+    const now = Date.now();
+    if (now - last < PRICE_REFRESH_FREQ_SECONDS * 1000) return;
+    console.log('Refreshing product prices...');
+    const { updated, errors, total } = await refreshAllProductPrices(redis);
+    if (total > 0) {
+      console.log(`Product prices: ${updated}/${total} updated, ${errors} errors`);
+    }
+    await redis.set(PRICES_LAST_REFRESH_KEY, String(now));
+  } catch (e) {
+    console.warn(`Product price refresh failed: ${(e as Error).message}`);
+  }
+}
+
 async function agentSessionWasRefreshed(redis: Redis, sessionPrefix: string, event: AtpSessionEvent, session: AtpSessionData | undefined) {
   if (event === 'update') {
     if (!session) {
@@ -400,6 +427,7 @@ async function main() {
       resolver = resolve;
       console.debug(`Waking up at ${new Date()}...`);
       searchForPosts(agent, redis)
+        .then(() => maybeRefreshProductPrices(redis))
         .then(() => setTimeout(() => resolve(true), POLLING_FREQ_SECONDS * 1000))
         .then(timeoutHandle => (pollHandle = timeoutHandle))
         .catch((error) => {

@@ -40,6 +40,9 @@ export interface WatchMeta {
   references_post_id: string | null;
   confidence: number;
   classified_at: string;
+  // Optional overrides. See listener/classify-post.ts for the authoritative shape.
+  search_query?: string | null;
+  product_url?: string | null;
 }
 
 export interface CanonicalEntry {

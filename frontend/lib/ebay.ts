@@ -42,6 +42,35 @@ function ebayEnv(): 'sandbox' | 'production' {
   return process.env.EBAY_ENV === 'production' ? 'production' : 'sandbox';
 }
 
+/**
+ * Wrap each bare token in double quotes to enable eBay's "exact words"
+ * mode — disables the default keyword expansion (plurals / synonyms /
+ * stemming). This mirrors what the eBay.com Advanced Search UI does when
+ * "Exact words, any order" is selected (it rewrites the search box from
+ * `Brew Metric PVD Black` to `"Brew" "Metric" "PVD" "Black"`), so the
+ * API call and the click-through `_nkw=` URL produce matching counts.
+ *
+ * Tokens that already carry a special leading char (`"` for an existing
+ * phrase, `+` / `-` for explicit modifiers, `(` for OR groups) pass
+ * through untouched.
+ *
+ * See: https://developer.ebay.com/api-docs/buy/browse/resources/item_summary/methods/search
+ */
+function tightenQuery(q: string): string {
+  const tokens: string[] = [];
+  const re = /"[^"]+"|\S+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(q)) !== null) {
+    const token = m[0];
+    if (/^["+\-()]/.test(token)) {
+      tokens.push(token);
+    } else {
+      tokens.push('"' + token + '"');
+    }
+  }
+  return tokens.join(' ');
+}
+
 function apiBase(): string {
   return ebayEnv() === 'production' ? PRODUCTION_BASE : SANDBOX_BASE;
 }
@@ -110,16 +139,25 @@ async function getToken(): Promise<string> {
  * Returns a small representative sample plus a count and the user-facing
  * search URL. Fails by throwing — callers should treat any error as
  * "pricing unavailable" and not render the widget.
+ *
+ * `queryOverride`, when set, replaces `${brand} ${model}` as the eBay
+ * search query. Used to honor the per-post `search_query` override for
+ * cases where the classifier's brand/model is imprecise.
  */
 export async function searchListings(
   brand: string,
-  model: string
+  model: string,
+  queryOverride?: string
 ): Promise<EbayPricingResult> {
   const token = await getToken();
-  const query = `${brand} ${model}`.trim();
+  const query = (queryOverride?.trim() || `${brand} ${model}`.trim());
+  // Same `+keyword` form used for both the API call and the user-facing
+  // ebay.com link, so the widget's count matches what the click-through
+  // search returns.
+  const tightenedQuery = tightenQuery(query);
 
   const params = new URLSearchParams({
-    q: query,
+    q: tightenedQuery,
     category_ids: WRISTWATCH_CATEGORY,
     limit: '20',
   });
@@ -164,7 +202,7 @@ export async function searchListings(
   // pointing sandbox users at sandbox listings via web UI is awkward and
   // the listings are synthetic anyway.
   const searchUrl =
-    `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}` +
+    `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(tightenedQuery)}` +
     `&_sacat=${WRISTWATCH_CATEGORY}`;
 
   return {

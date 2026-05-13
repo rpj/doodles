@@ -1,22 +1,45 @@
 /**
- * GET /api/pricing?brand=Seiko&model=Yuto%20Horigome
+ * GET /api/pricing?postId=<basePostId>
  *
- * Returns recent-listings summary for a (brand, model) pair via the
- * eBay Browse API. Results cached in Redis under
- * `__doodles:ebay-pricing:<slug>` for 24h to keep us well under eBay's
- * 5,000-call/day free-tier limit even at modest gallery traffic.
+ * Returns the pricing summary the per-post widget renders. Looks up the
+ * post's WatchMeta and merges two data sources:
  *
- * Fails soft — any upstream error returns 502 + a small error body. The
- * frontend Pricing component just doesn't render in that case.
+ *   1. eBay Browse API search for recent listings (count + min/max range
+ *      + sample). Cached 24h in Redis to stay well under the 5,000/day
+ *      free-tier limit. Uses `watchMeta.search_query` when set, else
+ *      falls back to `${brand} ${model}`.
+ *
+ *   2. Manufacturer product price scraped by the listener from
+ *      `watchMeta.product_url` (JSON-LD `Product.offers.price`). Stored
+ *      in __doodles:product-prices and refreshed on a cadence.
+ *
+ * Either source may be empty. The component renders nothing when both
+ * are missing, so the API returns a 200 with empty fields rather than
+ * 502 unless *both* fail and there is no cached prior data.
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Redis } from 'ioredis';
 import { searchListings, EbayPricingResult } from '../../lib/ebay';
 import { rateLimit, cors, runMiddleware } from '../../lib/api-middleware';
+import { WatchMeta } from '../../lib/redis';
 
+const WATCH_META_KEY = '__doodles:watch-meta';
+const PRODUCT_PRICES_KEY = '__doodles:product-prices';
 const CACHE_KEY_PREFIX = '__doodles:ebay-pricing:';
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
+
+interface ProductPrice {
+  value: number;
+  currency: string;
+  productUrl: string;
+  productDomain: string;
+  fetchedAt: string;
+}
+
+export interface PricingResponse extends EbayPricingResult {
+  productPrice: ProductPrice | null;
+}
 
 let redis: Redis | null = null;
 function getRedis(): Redis {
@@ -26,12 +49,31 @@ function getRedis(): Redis {
   return redis;
 }
 
-function cacheKey(brand: string, model: string): string {
-  const slug = `${brand} ${model}`
+function slugify(s: string): string {
+  return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return CACHE_KEY_PREFIX + slug;
+}
+
+function emptyEbayResult(query: string): EbayPricingResult {
+  // Synthetic "no listings" payload used when the eBay fetch fails but a
+  // product price is available — lets the widget render the product half
+  // without blocking on eBay being up.
+  return {
+    count: 0,
+    minPrice: null,
+    maxPrice: null,
+    currency: 'USD',
+    samples: [],
+    searchUrl:
+      'https://www.ebay.com/sch/i.html?_nkw=' +
+      encodeURIComponent(query) +
+      '&_sacat=14324',
+    env: process.env.EBAY_ENV === 'production' ? 'production' : 'sandbox',
+    query,
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 const rateLimiter = rateLimit({
@@ -50,7 +92,7 @@ const corsMiddleware = cors({
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<EbayPricingResult | { error: string }>
+  res: NextApiResponse<PricingResponse | { error: string }>
 ) {
   await runMiddleware(req, res, corsMiddleware);
   await runMiddleware(req, res, rateLimiter);
@@ -59,50 +101,79 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const brand = (req.query.brand as string | undefined)?.trim();
-  const model = (req.query.model as string | undefined)?.trim();
-
-  if (!brand || !model) {
-    return res.status(400).json({ error: 'brand and model required' });
+  const postId = (req.query.postId as string | undefined)?.trim();
+  if (!postId) {
+    return res.status(400).json({ error: 'postId required' });
   }
-  if (brand.length > 64 || model.length > 128) {
-    return res.status(400).json({ error: 'brand/model too long' });
-  }
-  // Light sanitization — eBay accepts most punctuation but we reject
-  // control characters and angle brackets defensively.
-  if (/[\x00-\x1f<>]/.test(brand + model)) {
-    return res.status(400).json({ error: 'invalid characters' });
+  if (!/^[a-z0-9]+$/i.test(postId) || postId.length > 64) {
+    return res.status(400).json({ error: 'invalid postId' });
   }
 
   const r = getRedis();
-  const key = cacheKey(brand, model);
 
+  // Load watch-meta. No meta = nothing to price against.
+  let meta: WatchMeta | null = null;
   try {
-    const cached = await r.get(key);
+    const raw = await r.hget(WATCH_META_KEY, postId);
+    if (raw) meta = JSON.parse(raw) as WatchMeta;
+  } catch (e) {
+    console.warn('pricing: watch-meta read failed:', (e as Error).message);
+  }
+  if (!meta || !meta.brand || !meta.model) {
+    return res.status(404).json({ error: 'no watch-meta for postId' });
+  }
+
+  const effectiveQuery = (meta.search_query?.trim() || `${meta.brand} ${meta.model}`.trim());
+  const cacheKey = CACHE_KEY_PREFIX + slugify(effectiveQuery);
+
+  // ---- Product price (already cached server-side by the listener) ----
+  let productPrice: ProductPrice | null = null;
+  try {
+    const raw = await r.hget(PRODUCT_PRICES_KEY, postId);
+    if (raw) productPrice = JSON.parse(raw) as ProductPrice;
+  } catch (e) {
+    console.warn('pricing: product-price read failed:', (e as Error).message);
+  }
+
+  // ---- eBay (24h Redis-cached) ----
+  let ebay: EbayPricingResult | null = null;
+  let cacheStatus = 'MISS';
+  try {
+    const cached = await r.get(cacheKey);
     if (cached) {
       try {
-        const data = JSON.parse(cached) as EbayPricingResult;
-        res.setHeader('X-Cache', 'HIT');
-        return res.status(200).json(data);
+        ebay = JSON.parse(cached) as EbayPricingResult;
+        cacheStatus = 'HIT';
       } catch {
         // Bad JSON in cache — fall through and re-fetch.
       }
     }
   } catch (e) {
-    console.warn('pricing cache read failed:', (e as Error).message);
+    console.warn('pricing: cache read failed:', (e as Error).message);
   }
 
-  try {
-    const result = await searchListings(brand, model);
+  if (!ebay) {
     try {
-      await r.set(key, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+      ebay = await searchListings(meta.brand, meta.model, effectiveQuery);
+      try {
+        await r.set(cacheKey, JSON.stringify(ebay), 'EX', CACHE_TTL_SECONDS);
+      } catch (e) {
+        console.warn('pricing: cache write failed:', (e as Error).message);
+      }
     } catch (e) {
-      console.warn('pricing cache write failed:', (e as Error).message);
+      console.warn('pricing: eBay fetch failed:', (e as Error).message);
     }
-    res.setHeader('X-Cache', 'MISS');
-    return res.status(200).json(result);
-  } catch (e) {
-    console.error('pricing fetch failed:', (e as Error).message);
+  }
+
+  // If both sources are empty, the widget would render nothing anyway —
+  // signal upstream failure so the component shows nothing.
+  if (!ebay && !productPrice) {
     return res.status(502).json({ error: 'pricing unavailable' });
   }
+
+  res.setHeader('X-Cache', cacheStatus);
+  return res.status(200).json({
+    ...(ebay ?? emptyEbayResult(effectiveQuery)),
+    productPrice,
+  });
 }

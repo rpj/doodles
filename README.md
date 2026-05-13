@@ -75,7 +75,9 @@ npm run start               # Start listener service
 npm run backfill            # Import hardcoded historical posts
 npm run backfill-facets     # Re-fetch facets (rich-text URIs/tags/mentions) for legacy posts
 npm run classify-existing   # Run the watch classifier on un-classified posts (see below)
-npm run apply-overrides     # Apply manual overrides + rebuild canonical (no Claude calls)
+npm run apply-overrides     # Apply manual overrides + rebuild canonical + refresh product prices (no Claude calls)
+npm run set-override        # Set a single partial-override field (search_query/product_url) on one post and apply it. `npm run set-override -- <postId> <field> <value>`
+npm run fetch-prices        # Manually refresh manufacturer product prices for posts with `product_url` overrides
 npm run watch-stats         # Read-only summary of classifier output
 ```
 
@@ -105,9 +107,10 @@ in this repo) and is also symlinked from `~/.claude/skills/watch-classifier`
 for interactive use. The listener calls `claude -p` non-interactively at
 post-processing time and stores results in three Redis keys:
 
-- `__doodles:watch-meta` — Hash, basePostId → JSON `{kind, brand, model, references_post_id, confidence, classified_at}`.
+- `__doodles:watch-meta` — Hash, basePostId → JSON `{kind, brand, model, references_post_id, confidence, classified_at, search_query?, product_url?}`. The two optional fields are pricing-widget overrides; see "Pricing Overrides".
 - `__doodles:watch-canonical` — List, oldest first, JSON `{post_id, brand, model}` for each unique watch. Drives the canonical-list context the classifier sees on subsequent posts (so post N+1 can be matched against post N's identified watches).
 - `__doodles:watch-overrides` — Hash, basePostId → JSON (same shape as `watch-meta`). See the "Watch classification overrides" section below.
+- `__doodles:product-prices` — Hash, basePostId → JSON `{value, currency, productUrl, productDomain, fetchedAt}`. Populated by the listener from `product_url` overrides; consumed by the per-post pricing widget. See "Pricing Overrides".
 
 Bootstrap the classification for legacy posts with `cd listener && npm run classify-existing`. Inspect the output with `npm run watch-stats` (add `--low-confidence` to spot-check entries that need manual review).
 
@@ -130,7 +133,9 @@ Value is a JSON blob with the same shape as `__doodles:watch-meta`:
   "model": "Black Bay 58" | null,
   "references_post_id": "3mxxxxxx" | null,
   "confidence": 1.0,
-  "classified_at": "2026-04-25T00:00:00Z"
+  "classified_at": "2026-04-25T00:00:00Z",
+  "search_query": "Tudor Black Bay 58 39mm",
+  "product_url": "https://www.tudorwatch.com/.../m79030n-0001"
 }
 ```
 
@@ -140,6 +145,24 @@ is `follow-on` (the base post ID of the canonical entry it follows up on);
 null otherwise. `confidence` and `classified_at` are stamped by the
 classifier; for hand-written overrides set `confidence: 1.0` and any
 ISO-8601 timestamp.
+
+`search_query` and `product_url` are both optional pricing overrides — see
+the "Pricing overrides" subsection below for what they do and how to set
+them. Omit them entirely if you only need to correct the classifier output.
+
+**Full vs. partial overrides.** An override JSON with `kind` set is a *full
+override* — it replaces the classifier's meta wholesale. An override
+JSON without `kind` (e.g. `{"search_query":"…"}`) is a *partial override*
+— `apply-overrides` merges just the listed fields on top of the existing
+meta. Partial overrides only patch the allow-listed fields (`search_query`,
+`product_url`); unknown fields are ignored, and a partial override against
+a post with no existing meta is skipped with a warning (classify the post
+first via `classify-existing`).
+
+Removing a partial override (`HDEL`) does *not* automatically clear the
+fields it set in `__doodles:watch-meta`. To clear them, either set the
+field explicitly to `null` (or empty string) and re-run `apply-overrides`,
+or wipe the post's meta and re-classify.
 
 **Set an override:**
 
@@ -175,7 +198,8 @@ cd listener
 npm run apply-overrides
 ```
 
-`apply-overrides` does two things, both pure-Redis (no Claude calls):
+`apply-overrides` does three things — the first two are pure Redis (no
+network), the third only runs if any override carries a `product_url`:
 
 1. Copies every entry in `__doodles:watch-overrides` into
    `__doodles:watch-meta`, overwriting the classifier's prior output for
@@ -185,8 +209,13 @@ npm run apply-overrides
    from the (now-overridden) meta. So a post previously classified as a
    canonical that's been overridden to `event` no longer appears in the
    canonical list, and a post overridden to `unique-watch` now does.
+3. For every override carrying `product_url`, fetches the page and
+   extracts the JSON-LD price into `__doodles:product-prices` so the
+   per-post pricing widget renders immediately rather than waiting for
+   the listener's next price-refresh tick (default 6h).
 
 Run `npm run apply-overrides -- --dry-run` first if you want to preview.
+Dry-run skips both the Redis writes *and* the product-page fetches.
 
 **View, list, remove overrides:**
 
@@ -215,7 +244,9 @@ checked first on every classify call).
 |---|---|---|---|
 | `classify-existing` | Walks every post in `all-doodles:posts`, classifies any missing from `watch-meta`. Skips already-classified posts. | Tokens (Claude calls — Sonnet by default) | First-time bootstrap on a Redis with no prior classification, or after the listener was offline / running without `claude` and posts piled up un-classified. |
 | `classify-existing -- --force` | Re-classifies **every** post from scratch. Clears the canonical list at start, rebuilds it incrementally. | Full corpus token cost | Only after editing `SKILL.md` and wanting a fresh corpus-wide pass. **Don't kill mid-run** — leaves canonical partial; recover with `apply-overrides`. |
-| `apply-overrides` | Pure Redis. Copies `watch-overrides` into `watch-meta`, rebuilds `watch-canonical` from existing meta by walking `all-doodles:posts` chronologically. | Free, instantaneous | After setting / removing an override; also after any of the failure modes below. |
+| `apply-overrides` | Pure Redis + (if any override has `product_url`) network fetches to those manufacturer pages. Copies `watch-overrides` into `watch-meta`, rebuilds `watch-canonical` from existing meta by walking `all-doodles:posts` chronologically, and refreshes `__doodles:product-prices` for every override with a `product_url`. | Free in Redis-only mode; small egress when `product_url` is set | After setting / removing an override; also after any of the failure modes below. |
+| `set-override` | One-shot per-post override setter. Merges a single field into the override JSON, applies it to `watch-meta`, and (for `product_url`) fetches the price inline. Skips the canonical rebuild — only supports the partial-override allow-list (`search_query`, `product_url`). | Free in Redis-only mode; one outbound HTTP request for `product_url` changes | The fastest path for the common pricing-override workflow (one field at a time). Use `apply-overrides` for full classification changes that need canonical rebuilt. |
+| `fetch-prices` | Refreshes `__doodles:product-prices` by re-fetching every `product_url` in `watch-meta` and extracting JSON-LD `Product.offers.price`. Supports `--post=<basePostId>` to fetch one. | Free; just outbound HTTP | Manually re-fetch outside the listener's 6h cadence — e.g., after pasting a new product URL into an override and not wanting to wait. The listener does this automatically on its `PRICE_REFRESH_FREQ_SECONDS` schedule. |
 | `watch-stats` | Read-only summary of classifier output. Flags: `--low-confidence`, `--list-other`. | Free | Sanity-check classifier output and find entries that need a manual override. |
 
 **Overrides persist across all of the above** — they're consulted first on every `classifyAndRecord` call, and `apply-overrides` always re-applies them on top of meta. Setting an override is "sticky"; you can re-classify or rebuild canonical as much as you want without losing your manual corrections.
@@ -256,6 +287,122 @@ claude -p --output-format json --model sonnet \
 
 If the JSON envelope comes back with a `result` field, the listener will classify cleanly on every new post.
 
+### Pricing Overrides
+
+The per-post pricing widget (the small card between the post text and the
+images on `/post/[id]`) merges two data sources: eBay Browse API search
+results, and a manufacturer product price extracted from a JSON-LD
+`Product.offers.price` blob on a product page. Both can be steered per
+post via two optional fields on a `__doodles:watch-overrides` entry.
+
+#### `search_query` — fix eBay search precision
+
+When the classifier's `brand` + `model` produces a noisy or empty eBay
+search (common for microbrands or imprecise model names), set
+`search_query` on the canonical's override to replace the default
+`${brand} ${model}` query. Affects the widget for the canonical post and
+all of its follow-ons.
+
+Since `search_query` doesn't change the classification, write it as a
+partial override (no `kind`) so it patches the existing meta instead of
+replacing it. The shortest path is the `set-override` CLI, which writes
+the override JSON and applies it in one step:
+
+```bash
+cd listener && npm run set-override -- 3m2v2gfa7as2w search_query \
+  "PHILIPPE STARCK FOSSIL PH-5029 WATCH"
+# Override updated: 3m2v2gfa7as2w.search_query = "..."
+# Wrote __doodles:watch-meta: unique-watch Fossil PH-5029
+#   search_query: "PHILIPPE STARCK FOSSIL PH-5029 WATCH"
+```
+
+Equivalent raw form, for when you want to script multi-field changes:
+
+```bash
+redis-cli --raw HSET __doodles:watch-overrides 3m2v2gfa7as2w \
+  '{"search_query":"PHILIPPE STARCK FOSSIL PH-5029 WATCH"}'
+
+cd listener && npm run apply-overrides
+```
+
+Note: the eBay response is cached in Redis for 24h per *effective* search
+query, so a `search_query` change creates a new cache entry and the next
+widget render fetches fresh data. The old cache entry expires on its own.
+
+#### `product_url` — show the current manufacturer price
+
+For watches still sold by the brand (microbrands, current production
+flagships), set `product_url` to the manufacturer's product page. The
+listener fetches the page on a cadence (default every 6h, see
+`PRICE_REFRESH_FREQ_SECONDS`), extracts the price from JSON-LD
+`Product.offers.price`, and stores it in `__doodles:product-prices`.
+
+The widget then renders the current price + a link to the manufacturer
+page alongside (or instead of) the eBay listings row. Works on any
+e-commerce platform that emits the schema.org `Product` structured data
+— Shopify, WooCommerce, and most custom storefronts do; we treat that
+schema as a sanctioned data contract rather than parsing rendered HTML.
+
+```bash
+# Brew is a microbrand with very few eBay listings — point at their
+# product page so the widget shows the current MSRP. Partial override
+# preserves the classifier's brand/model/kind; only product_url is patched.
+cd listener && npm run set-override -- 3mkxuccaxkc2j product_url \
+  "https://brewwatches.com/products/metric-hp-1"
+# Output:
+#   Override updated: 3mkxuccaxkc2j.product_url = "..."
+#   Wrote __doodles:watch-meta: unique-watch Brew Metric HP-1
+#     product_url:  https://brewwatches.com/products/metric-hp-1
+#   Fetching product price from ...
+#     [price] USD 750 from brewwatches.com
+```
+
+The price fetch happens inline so you don't wait for the listener's 6h
+refresh tick. To clear a previously-set product_url and drop the cached
+price, pass an empty value:
+
+```bash
+cd listener && npm run set-override -- 3mkxuccaxkc2j product_url ""
+#   Override updated: 3mkxuccaxkc2j.product_url = null
+#   Cleared product-price cache entry for 3mkxuccaxkc2j
+```
+
+You can also set both fields together via the raw form when you need to
+write multiple keys at once — the widget then shows the manufacturer
+price *and* the eBay listings row when both return data:
+
+```bash
+redis-cli --raw HSET __doodles:watch-overrides 3mkxuccaxkc2j \
+  '{"search_query":"Brew Metric HP-1", "product_url":"https://brewwatches.com/products/metric-hp-1"}'
+cd listener && npm run apply-overrides
+```
+
+**Manual fetch (debugging):**
+
+```bash
+# Fetch all configured product URLs and refresh __doodles:product-prices
+cd listener && npm run fetch-prices
+
+# Fetch a single post
+cd listener && npm run fetch-prices -- --post=3mkxuccaxkc2j
+
+# Inspect stored prices
+redis-cli HGETALL __doodles:product-prices
+
+# Clear a stale price (e.g., product discontinued — the URL still works
+# but the listed price is no longer relevant)
+redis-cli HDEL __doodles:product-prices 3mkxuccaxkc2j
+```
+
+If a page has no parseable JSON-LD `Product` block, `fetch-prices` logs a
+warning and writes nothing — any prior successful price remains in place
+until you manually `HDEL` it.
+
+**For follow-ons:** set `product_url` and `search_query` on the
+*canonical* post's override, not on the follow-on. The widget on a
+follow-on page resolves to the canonical's `basePostId` before looking
+up overrides and prices, so one override entry covers the whole family.
+
 ### Tools (./tools/)
 ```bash
 # Query specific post data
@@ -280,6 +427,8 @@ npx ts-node moderation.ts <postId> --delete
 **Optional:**
 - `REDIS_URL` - Redis connection string (default: `redis://localhost:6379`)
 - `POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
+- `PRICE_REFRESH_FREQ_SECONDS` - Cadence for refreshing manufacturer product prices via `fetch-prices` from inside the listener loop (default: 21600 = 6h). Only relevant if any `__doodles:watch-overrides` entries carry a `product_url`. The refresh runs after each polling tick that crosses the threshold, throttled via `__doodles:product-prices:last-refresh`.
+- `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_ENV` - eBay Browse API credentials for the pricing widget. `EBAY_ENV` is `production` or `sandbox` (default sandbox; sandbox returns synthetic data unsuitable for live).
 - `HASHTAG_TO_WATCH` - Hashtag to monitor (default: `#YourTag`). Include the # prefix.
 - `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit the collection to. First handle in the list is shown as the deployment owner on the gallery.
 - `SITE_TITLE` - Human-readable wordmark for the gallery masthead (e.g. `Ryan's Watches`). Falls back to the hashtag itself when unset.

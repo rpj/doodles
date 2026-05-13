@@ -37,6 +37,16 @@ export interface WatchMeta {
   references_post_id: string | null;
   confidence: number;
   classified_at: string;
+  // Optional overrides set via __doodles:watch-overrides. Both are
+  // non-destructive — pre-existing records without these fields are valid.
+  //   search_query: replaces `${brand} ${model}` as the eBay search query
+  //     for the pricing widget. Lets you correct imprecise model names
+  //     without touching classifier output.
+  //   product_url: manufacturer's product page URL. The listener
+  //     periodically fetches the page and extracts JSON-LD
+  //     Product.offers.price into __doodles:product-prices.
+  search_query?: string | null;
+  product_url?: string | null;
 }
 
 export interface CanonicalEntry {
@@ -108,6 +118,49 @@ export async function loadOverride(redis: Redis, basePostId: string): Promise<Wa
   }
 }
 
+/**
+ * Load the raw override JSON for a post (or null if absent / malformed).
+ * Use this when you need to distinguish a full override (has `kind` set —
+ * replaces meta wholesale) from a partial override (just patchable fields
+ * like `search_query` / `product_url` — merges on top of existing meta).
+ */
+export async function loadRawOverride(redis: Redis, basePostId: string): Promise<any | null> {
+  const raw = await redis.hget(OVERRIDES_KEY, basePostId);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// Fields a *partial* override is allowed to patch onto existing meta.
+// Restricting to an allow-list prevents typo'd or unknown keys from
+// silently polluting watch-meta.
+const PARTIAL_OVERRIDE_FIELDS = ['search_query', 'product_url'] as const;
+
+/**
+ * Extract the patchable fields from a raw override object. Empty-string
+ * and explicit-null values are normalized to null (so the operator can
+ * clear a previously-set override by writing either form). Unknown fields
+ * are ignored.
+ */
+export function partialOverrideFields(raw: any): Partial<WatchMeta> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Partial<WatchMeta> = {};
+  for (const field of PARTIAL_OVERRIDE_FIELDS) {
+    if (!(field in raw)) continue;
+    const v = raw[field];
+    if (v === null) {
+      out[field] = null;
+    } else if (typeof v === 'string') {
+      const trimmed = v.trim();
+      out[field] = trimmed.length > 0 ? trimmed : null;
+    }
+  }
+  return out;
+}
+
 export async function readMeta(redis: Redis, basePostId: string): Promise<WatchMeta | null> {
   const raw = await redis.hget(META_KEY, basePostId);
   if (!raw) return null;
@@ -118,7 +171,7 @@ export async function readMeta(redis: Redis, basePostId: string): Promise<WatchM
   }
 }
 
-function validateMeta(input: any): WatchMeta | null {
+export function validateMeta(input: any): WatchMeta | null {
   if (!input || !VALID_KINDS.has(input.kind)) return null;
   const meta: WatchMeta = {
     kind: input.kind,
@@ -128,6 +181,12 @@ function validateMeta(input: any): WatchMeta | null {
     confidence: typeof input.confidence === 'number' ? Math.max(0, Math.min(1, input.confidence)) : 0,
     classified_at: typeof input.classified_at === 'string' ? input.classified_at : new Date().toISOString(),
   };
+  if (typeof input.search_query === 'string' && input.search_query.trim()) {
+    meta.search_query = input.search_query.trim();
+  }
+  if (typeof input.product_url === 'string' && input.product_url.trim()) {
+    meta.product_url = input.product_url.trim();
+  }
   return meta;
 }
 
@@ -264,24 +323,53 @@ async function appendCanonicalIfNew(redis: Redis, postId: string, meta: WatchMet
  * Classify a post and persist the result. Honors manual overrides at
  * `__doodles:watch-overrides` first. Safe to call from the listener's
  * processPost path — failures are swallowed and logged.
+ *
+ * Override semantics:
+ *   - Full override (has `kind`): replaces the classifier entirely. The
+ *     classifier doesn't run.
+ *   - Partial override (no `kind`, just `search_query` / `product_url`):
+ *     classifier still runs; override fields are merged on top of the
+ *     classifier's output before persisting.
  */
 export async function classifyAndRecord(
   redis: Redis,
   input: ClassifyInput,
   options: ClassifyOptions = {}
 ): Promise<WatchMeta | null> {
-  const override = await loadOverride(redis, input.basePostId);
-  if (override) {
-    await redis.hset(META_KEY, input.basePostId, JSON.stringify(override));
-    await appendCanonicalIfNew(redis, input.basePostId, override);
-    return override;
+  const rawOverride = await loadRawOverride(redis, input.basePostId);
+
+  if (rawOverride && typeof rawOverride.kind === 'string') {
+    const fullOverride = validateMeta(rawOverride);
+    if (fullOverride) {
+      await redis.hset(META_KEY, input.basePostId, JSON.stringify(fullOverride));
+      await appendCanonicalIfNew(redis, input.basePostId, fullOverride);
+      return fullOverride;
+    }
+    // Structurally broken — fall through and let the classifier run.
   }
 
   const canonical = await loadCanonical(redis);
   const meta = await classifyPost(input, canonical, options);
   if (!meta) return null;
 
-  await redis.hset(META_KEY, input.basePostId, JSON.stringify(meta));
-  await appendCanonicalIfNew(redis, input.basePostId, meta);
-  return meta;
+  // Defensive guard: the classifier occasionally hallucinates a
+  // `references_post_id` equal to the post being classified. Structurally
+  // a post can't be a follow-on of itself, and writing the bad meta would
+  // exclude the post from the canonical list (rebuild requires
+  // !references_post_id) — exactly the failure mode we saw with the
+  // Fossil PH-5029 re-classify. Clear the reference; demote `follow-on`
+  // to `unique-watch` so brand+model still flow to canonical.
+  if (meta.references_post_id && meta.references_post_id === input.basePostId) {
+    console.warn(`[watch-classifier] ${input.basePostId} classified as follow-on of itself — clearing references_post_id, demoting kind to unique-watch`);
+    meta.references_post_id = null;
+    if (meta.kind === 'follow-on') meta.kind = 'unique-watch';
+  }
+
+  const merged: WatchMeta = rawOverride
+    ? { ...meta, ...partialOverrideFields(rawOverride) }
+    : meta;
+
+  await redis.hset(META_KEY, input.basePostId, JSON.stringify(merged));
+  await appendCanonicalIfNew(redis, input.basePostId, merged);
+  return merged;
 }

@@ -57,6 +57,9 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
   const cleanText = stripped.text;
 
   function title() {
+    if (watchMeta?.brand && watchMeta?.model) {
+      return `${watchMeta.brand} ${watchMeta.model}`;
+    }
     const date = format(new Date(post?.createdAt ?? Date.now()), 'MMM d, yyyy');
     return post?.text.split('\n')[0] || date;
   }
@@ -96,7 +99,13 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
           <article className={styles.post}>
             {watchMeta?.brand && watchMeta.model &&
               (watchMeta.kind === 'unique-watch' || watchMeta.kind === 'follow-on') && (
-                <Pricing brand={watchMeta.brand} model={watchMeta.model} />
+                <Pricing
+                  postId={
+                    watchMeta.kind === 'follow-on' && watchMeta.references_post_id
+                      ? watchMeta.references_post_id
+                      : basePostId
+                  }
+                />
               )}
 
             <div className={styles.imageContainer}>
