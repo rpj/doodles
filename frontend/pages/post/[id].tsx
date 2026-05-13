@@ -9,6 +9,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import styles from '../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../lib/utils';
 import RichText, { stripTriggerHashtag } from '../../components/RichText';
+import Pricing from '../../components/Pricing';
 
 interface PostPageProps {
   post: Post | null;
@@ -93,6 +94,11 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
           </Link>
           
           <article className={styles.post}>
+            {watchMeta?.brand && watchMeta.model &&
+              (watchMeta.kind === 'unique-watch' || watchMeta.kind === 'follow-on') && (
+                <Pricing brand={watchMeta.brand} model={watchMeta.model} />
+              )}
+
             <div className={styles.imageContainer}>
               {post.imageUrls.map((url, index) => {
                 const imageLink = `/post/${encodeURIComponent(basePostId + '#image' + index)}?ref=${encodeURIComponent(backUrl)}`;

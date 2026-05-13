@@ -9,6 +9,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import styles from '../../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../../lib/utils';
 import RichText, { sliceRichText, findFirstNewlineByte, byteLength, stripTriggerHashtag } from '../../../components/RichText';
+import Pricing from '../../../components/Pricing';
 
 interface PostPageProps {
   post: Post | null;
@@ -129,6 +130,11 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
             {(
               hasMultipleImages ? <div className={styles.text}>{cleanedText()}</div> : null
             )}
+
+            {watchMeta?.brand && watchMeta.model &&
+              (watchMeta.kind === 'unique-watch' || watchMeta.kind === 'follow-on') && (
+                <Pricing brand={watchMeta.brand} model={watchMeta.model} />
+              )}
 
             <div className={styles.imageContainer}>
               {post.imageUrls.map((url, index) => {

@@ -25,5 +25,9 @@ services:
       - HASHTAG_TO_WATCH=${HASHTAG_TO_WATCH}
       - HANDLES_TO_WATCH=${HANDLES_TO_WATCH}
       - SITE_TITLE=${SITE_TITLE}
+      # eBay Browse API for the per-post pricing widget
+      - EBAY_CLIENT_ID=${EBAY_CLIENT_ID}
+      - EBAY_CLIENT_SECRET=${EBAY_CLIENT_SECRET}
+      - EBAY_ENV=${EBAY_ENV:-sandbox}
     restart: unless-stopped
 
