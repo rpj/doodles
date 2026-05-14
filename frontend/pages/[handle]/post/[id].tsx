@@ -149,14 +149,9 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
             )}
 
             {watchMeta?.brand && watchMeta.model &&
-              (watchMeta.kind === 'unique-watch' || watchMeta.kind === 'follow-on') && (
-                <Pricing
-                  postId={
-                    watchMeta.kind === 'follow-on' && watchMeta.references_post_id
-                      ? watchMeta.references_post_id
-                      : basePostId
-                  }
-                />
+              watchMeta.kind === 'unique-watch' &&
+              postId === basePostId && (
+                <Pricing postId={basePostId} />
               )}
 
             <div className={styles.imageContainer}>

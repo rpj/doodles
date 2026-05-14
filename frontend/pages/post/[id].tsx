@@ -98,14 +98,9 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
           
           <article className={styles.post}>
             {watchMeta?.brand && watchMeta.model &&
-              (watchMeta.kind === 'unique-watch' || watchMeta.kind === 'follow-on') && (
-                <Pricing
-                  postId={
-                    watchMeta.kind === 'follow-on' && watchMeta.references_post_id
-                      ? watchMeta.references_post_id
-                      : basePostId
-                  }
-                />
+              watchMeta.kind === 'unique-watch' &&
+              postId === basePostId && (
+                <Pricing postId={basePostId} />
               )}
 
             <div className={styles.imageContainer}>
