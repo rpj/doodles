@@ -16,9 +16,12 @@ interface PostPageProps {
   backUrl: string;
   hashtagWithoutPrefix: string;
   watchMeta: WatchMeta | null;
+  // True iff the URL was `/post/<basePostId>` rather than `/post/<basePostId>#imageN`.
+  // post.uri is unreliable here — see the handle page for the explanation.
+  isOverview: boolean;
 }
 
-export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta }: PostPageProps) {
+export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta, isOverview }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -97,12 +100,6 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
           </Link>
           
           <article className={styles.post}>
-            {watchMeta?.brand && watchMeta.model &&
-              watchMeta.kind === 'unique-watch' &&
-              postId === basePostId && (
-                <Pricing postId={basePostId} />
-              )}
-
             <div className={styles.imageContainer}>
               {post.imageUrls.map((url, index) => {
                 const imageLink = `/post/${encodeURIComponent(basePostId + '#image' + index)}?ref=${encodeURIComponent(backUrl)}`;
@@ -131,7 +128,13 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
                 );
               })}
             </div>
-            
+
+            {watchMeta?.brand && watchMeta.model &&
+              watchMeta.kind === 'unique-watch' &&
+              isOverview && (
+                <Pricing postId={basePostId} />
+              )}
+
             <div className={styles.content}>
               {cleanText && (
                 <p className={styles.text}><RichText text={cleanText} facets={stripped.facets} /></p>
@@ -199,6 +202,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         backUrl: ref ? decodeURIComponent(ref as string) : '/',
         hashtagWithoutPrefix,
         watchMeta,
+        isOverview: !hasImageSuffix,
       },
     };
   } catch (error) {
@@ -209,6 +213,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         backUrl: '/',
         hashtagWithoutPrefix,
         watchMeta: null,
+        isOverview: false,
       },
     };
   }

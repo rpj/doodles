@@ -17,9 +17,15 @@ interface PostPageProps {
   hashtagWithoutPrefix: string;
   numHandlesToWatch: number;
   watchMeta: WatchMeta | null;
+  // True iff the URL the visitor hit was the overview form (`/post/<basePostId>`)
+  // rather than a specific image view (`/post/<basePostId>#imageN`). Derived
+  // in getServerSideProps from the URL itself — DON'T compute it from post.uri,
+  // which always carries an #imageN suffix because the listener stores each
+  // image as its own entry (getFullPostById merges them but keeps one URI).
+  isOverview: boolean;
 }
 
-export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta }: PostPageProps) {
+export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta, isOverview }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -148,12 +154,6 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
               hasMultipleImages ? <div className={styles.text}>{cleanedText()}</div> : null
             )}
 
-            {watchMeta?.brand && watchMeta.model &&
-              watchMeta.kind === 'unique-watch' &&
-              postId === basePostId && (
-                <Pricing postId={basePostId} />
-              )}
-
             <div className={styles.imageContainer}>
               {post.imageUrls.map((url, index) => {
                 const imageLink = `/${handle}/post/${encodeURIComponent(basePostId + '#image' + index)}`;
@@ -182,7 +182,13 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
                 );
               })}
             </div>
-            
+
+            {watchMeta?.brand && watchMeta.model &&
+              watchMeta.kind === 'unique-watch' &&
+              isOverview && (
+                <Pricing postId={basePostId} />
+              )}
+
             <div className={styles.content}>
               {(
                 !hasMultipleImages ? <div className={styles.text}>{cleanedText()}</div> : null
@@ -252,6 +258,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         hashtagWithoutPrefix,
         numHandlesToWatch,
         watchMeta,
+        isOverview: !hasImageSuffix,
       },
     };
   } catch (error) {
@@ -263,6 +270,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         hashtagWithoutPrefix: null,
         numHandlesToWatch: 0,
         watchMeta: null,
+        isOverview: false,
       },
     };
   }
