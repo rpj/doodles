@@ -29,5 +29,6 @@ services:
       - EBAY_CLIENT_ID=${EBAY_CLIENT_ID}
       - EBAY_CLIENT_SECRET=${EBAY_CLIENT_SECRET}
       - EBAY_ENV=${EBAY_ENV:-sandbox}
+      - REDDIT_CARD_ENABLED=${REDDIT_CARD_ENABLED:-false}
     restart: unless-stopped
 
