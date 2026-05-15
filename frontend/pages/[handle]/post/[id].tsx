@@ -29,9 +29,13 @@ interface PostPageProps {
   // render the hero first, then the cards (Pricing/Reddit), then the rest
   // of the images. Indices in click-through links are unchanged.
   heroImageIndex: number;
+  // Master kill-switch for the Reddit card, derived from REDDIT_CARD_ENABLED
+  // in getServerSideProps. When false, the component never mounts (no
+  // /api/reddit fetch, no DOM, no styling).
+  redditCardEnabled: boolean;
 }
 
-export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta, isOverview, heroImageIndex }: PostPageProps) {
+export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta, isOverview, heroImageIndex, redditCardEnabled }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -204,7 +208,7 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
               const cards = showCards && (
                 <>
                   {isUnique && <Pricing postId={basePostId} />}
-                  {(isUnique || isFollowOn) && <Reddit postId={redditPostId} />}
+                  {(isUnique || isFollowOn) && redditCardEnabled && <Reddit postId={redditPostId} />}
                 </>
               );
 
@@ -288,6 +292,11 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     const basePostId = decodedId.split('#')[0];
     const watchMeta = post ? await getWatchMeta(basePostId) : null;
     const heroImageIndex = post ? await getHeroImageIndex(basePostId) : 0;
+    // Reddit card kill-switch. Default-on; flip with REDDIT_CARD_ENABLED=false.
+    const redditFlag = process.env.REDDIT_CARD_ENABLED;
+    const redditCardEnabled = redditFlag == null
+      ? true
+      : !/^(false|0|no|off)$/i.test(redditFlag.trim());
 
     return {
       props: {
@@ -298,6 +307,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         watchMeta,
         isOverview: !hasImageSuffix,
         heroImageIndex,
+        redditCardEnabled,
       },
     };
   } catch (error) {
@@ -311,6 +321,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         watchMeta: null,
         isOverview: false,
         heroImageIndex: 0,
+        redditCardEnabled: false,
       },
     };
   }

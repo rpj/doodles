@@ -22,9 +22,11 @@ interface PostPageProps {
   isOverview: boolean;
   // See the handle page; same semantics.
   heroImageIndex: number;
+  // Reddit card kill-switch — see the handle page.
+  redditCardEnabled: boolean;
 }
 
-export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta, isOverview, heroImageIndex }: PostPageProps) {
+export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta, isOverview, heroImageIndex, redditCardEnabled }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -141,7 +143,7 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
               const cards = showCards && (
                 <>
                   {isUnique && <Pricing postId={basePostId} />}
-                  {(isUnique || isFollowOn) && <Reddit postId={redditPostId} />}
+                  {(isUnique || isFollowOn) && redditCardEnabled && <Reddit postId={redditPostId} />}
                 </>
               );
 
@@ -223,6 +225,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     const basePostId = decodedId.split('#')[0];
     const watchMeta = post ? await getWatchMeta(basePostId) : null;
     const heroImageIndex = post ? await getHeroImageIndex(basePostId) : 0;
+    const redditFlag = process.env.REDDIT_CARD_ENABLED;
+    const redditCardEnabled = redditFlag == null
+      ? true
+      : !/^(false|0|no|off)$/i.test(redditFlag.trim());
 
     return {
       props: {
@@ -232,6 +238,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         watchMeta,
         isOverview: !hasImageSuffix,
         heroImageIndex,
+        redditCardEnabled,
       },
     };
   } catch (error) {
@@ -244,6 +251,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         watchMeta: null,
         isOverview: false,
         heroImageIndex: 0,
+        redditCardEnabled: false,
       },
     };
   }

@@ -22,6 +22,17 @@ const WATCH_META_KEY = '__doodles:watch-meta';
 const CACHE_KEY_PREFIX = '__doodles:reddit-search:';
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
 
+// Master kill-switch for the Reddit card. Defaults to enabled. Set
+// REDDIT_CARD_ENABLED=false (case-insensitive) to disable the card
+// everywhere — the API returns 503 and the post pages skip rendering.
+// Use this while neither archive (Arctic, PullPush) can reliably tell
+// us which results were later deleted on Reddit's live site.
+function redditCardEnabled(): boolean {
+  const v = process.env.REDDIT_CARD_ENABLED;
+  if (v == null) return true;
+  return !/^(false|0|no|off)$/i.test(v.trim());
+}
+
 // API response = lib search result + a per-request "did this query come from
 // an override?" flag, so the card can render "...posts for '<override>'"
 // when the operator has steered the query away from the default brand+model.
@@ -67,6 +78,10 @@ export default async function handler(
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!redditCardEnabled()) {
+    return res.status(503).json({ error: 'reddit card disabled' });
   }
 
   const postId = (req.query.postId as string | undefined)?.trim();

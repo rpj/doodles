@@ -413,6 +413,18 @@ fanned out across an operator-configured subreddit list since its
 (site-wide title search via `q`, used when Arctic Shift is down or
 rate-limit-exhausted).
 
+**Known limitation: archive staleness on deletion.** Both Arctic Shift
+and PullPush freeze each post's metadata at the moment they index it.
+Posts deleted *later* on Reddit's live site still surface as live in
+both archives. The card layers two best-effort filters to compensate
+(drop in-archive removals via `removed_by_category` / `is_robot_indexable`
+/ `selftext=[removed]`; collapse same-author near-duplicate titles to
+their highest-scoring entry, which catches the common mod-removed-as-
+dupe pattern) — but isolated after-archive deletions will still slip
+through. A full fix requires the Reddit Data API (OAuth) for live
+status verification, not yet built. To toggle the whole card off in the
+meantime, set `REDDIT_CARD_ENABLED=false`.
+
 **Configured subreddit list** — `__doodles:reddit-subreddits` is a Redis
 list (oldest first) of subreddit names to query when Arctic Shift is the
 active backend (which is the primary path). Each entry is one subreddit
@@ -475,6 +487,7 @@ npx ts-node moderation.ts <postId> --delete
 - `REDIS_URL` - Redis connection string (default: `redis://localhost:6379`)
 - `POLLING_FREQ_SECONDS` - Listener polling interval (default: 300)
 - `PRICE_REFRESH_FREQ_SECONDS` - Cadence for refreshing manufacturer product prices via `fetch-prices` from inside the listener loop (default: 21600 = 6h). Only relevant if any `__doodles:watch-overrides` entries carry a `product_url`. The refresh runs after each polling tick that crosses the threshold, throttled via `__doodles:product-prices:last-refresh`.
+- `REDDIT_CARD_ENABLED` - Master kill-switch for the per-post Reddit card. Default `true`. Set to `false` to disable rendering everywhere (both the API endpoint and the post pages skip it). Useful while the underlying archives (Arctic Shift, PullPush) lack live deletion tracking — see README "Reddit Card".
 - `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_ENV` - eBay Browse API credentials for the pricing widget. `EBAY_ENV` is `production` or `sandbox` (default sandbox; sandbox returns synthetic data unsuitable for live).
 - `HASHTAG_TO_WATCH` - Hashtag to monitor (default: `#YourTag`). Include the # prefix.
 - `HANDLES_TO_WATCH` - Comma-separated list of Bluesky handles to limit the collection to. First handle in the list is shown as the deployment owner on the gallery.
