@@ -69,13 +69,11 @@ export default function Reddit({ postId }: RedditProps) {
 
   if (failed || !data || data.posts.length === 0) return null;
 
-  const countLabel = data.posts.length === 1 ? 'selected reddit post' : 'selected reddit posts';
+  const countLabel = data.posts.length === 1 ? 'a reddit post' : 'some reddit posts';
 
   return (
     <aside className={styles.reddit} aria-label="Recent Reddit posts">
       <div className={styles.eyebrow}>
-        <span className={styles.count}>{data.posts.length}</span>
-        {' '}
         {countLabel}
         {data.queryOverride && (
           <>
