@@ -10,6 +10,7 @@ import styles from '../../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../../lib/utils';
 import RichText, { sliceRichText, findFirstNewlineByte, byteLength, stripTriggerHashtag } from '../../../components/RichText';
 import Pricing from '../../../components/Pricing';
+import Reddit from '../../../components/Reddit';
 
 interface PostPageProps {
   post: Post | null;
@@ -186,7 +187,10 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
             {watchMeta?.brand && watchMeta.model &&
               watchMeta.kind === 'unique-watch' &&
               isOverview && (
-                <Pricing postId={basePostId} />
+                <>
+                  <Pricing postId={basePostId} />
+                  <Reddit postId={basePostId} />
+                </>
               )}
 
             <div className={styles.content}>

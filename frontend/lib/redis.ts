@@ -43,6 +43,7 @@ export interface WatchMeta {
   // Optional overrides. See listener/classify-post.ts for the authoritative shape.
   search_query?: string | null;
   product_url?: string | null;
+  reddit_query?: string | null;
 }
 
 export interface CanonicalEntry {

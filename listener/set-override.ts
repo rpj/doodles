@@ -39,7 +39,7 @@ import {
   PRODUCT_PRICES_KEY,
 } from './fetch-product-prices';
 
-const SUPPORTED_FIELDS = ['search_query', 'product_url'] as const;
+const SUPPORTED_FIELDS = ['search_query', 'product_url', 'reddit_query'] as const;
 
 function usage(extra?: string): never {
   if (extra) console.error(extra);
