@@ -17,6 +17,10 @@ interface RedditSearchResult {
   backend: 'arctic' | 'pullpush';
   posts: RedditPost[];
   fetchedAt: string;
+  // Non-null when the post has a reddit_query override set on its
+  // watch-meta — the card surfaces it so the viewer knows the search
+  // was steered. Falls back to null when query was the default brand+model.
+  queryOverride: string | null;
 }
 
 interface RedditProps {
@@ -73,6 +77,12 @@ export default function Reddit({ postId }: RedditProps) {
         <span className={styles.count}>{data.posts.length}</span>
         {' '}
         {countLabel}
+        {data.queryOverride && (
+          <>
+            {' for '}
+            <span className={styles.queryOverride}>&ldquo;{data.queryOverride}&rdquo;</span>
+          </>
+        )}
       </div>
       <ul className={styles.list}>
         {data.posts.map((p) => (

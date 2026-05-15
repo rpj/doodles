@@ -29,6 +29,15 @@
   margin-right: 0.125rem;
 }
 
+/* Override term — slightly de-emphasized vs the count, but the quotes
+   make it visually clear that this is the query string the search ran
+   against. */
+.queryOverride {
+  color: var(--text-color);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .list {
   list-style: none;
   margin: 0;

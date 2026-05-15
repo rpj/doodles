@@ -22,6 +22,13 @@ const WATCH_META_KEY = '__doodles:watch-meta';
 const CACHE_KEY_PREFIX = '__doodles:reddit-search:';
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
 
+// API response = lib search result + a per-request "did this query come from
+// an override?" flag, so the card can render "...posts for '<override>'"
+// when the operator has steered the query away from the default brand+model.
+export interface RedditApiResponse extends RedditSearchResult {
+  queryOverride: string | null;
+}
+
 let redis: Redis | null = null;
 function getRedis(): Redis {
   if (!redis) {
@@ -53,7 +60,7 @@ const corsMiddleware = cors({
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<RedditSearchResult | { error: string }>,
+  res: NextApiResponse<RedditApiResponse | { error: string }>,
 ) {
   await runMiddleware(req, res, corsMiddleware);
   await runMiddleware(req, res, rateLimiter);
@@ -84,17 +91,20 @@ export default async function handler(
     return res.status(404).json({ error: 'no watch-meta for postId' });
   }
 
-  const query = (meta.reddit_query?.trim() || `${meta.brand} ${meta.model}`.trim());
+  const queryOverride = meta.reddit_query?.trim() || null;
+  const query = queryOverride || `${meta.brand} ${meta.model}`.trim();
   const cacheKey = CACHE_KEY_PREFIX + slugify(query);
 
   // ---- Cache lookup ----
+  // Cache holds only the lib search result; we attach `queryOverride`
+  // per-request since it's a function of watch-meta, not of the search.
+  let result: RedditSearchResult | null = null;
   try {
     const cached = await r.get(cacheKey);
     if (cached) {
       try {
-        const data = JSON.parse(cached) as RedditSearchResult;
+        result = JSON.parse(cached) as RedditSearchResult;
         res.setHeader('X-Cache', 'HIT');
-        return res.status(200).json(data);
       } catch {
         // bad JSON in cache — fall through and re-fetch.
       }
@@ -103,21 +113,21 @@ export default async function handler(
     console.warn('reddit: cache read failed:', (e as Error).message);
   }
 
-  // ---- Upstream fetch ----
-  let result: RedditSearchResult;
-  try {
-    result = await searchPosts(query);
-  } catch (e) {
-    console.error('reddit fetch failed:', (e as Error).message);
-    return res.status(502).json({ error: 'reddit unavailable' });
+  // ---- Upstream fetch (on miss) ----
+  if (!result) {
+    try {
+      result = await searchPosts(query);
+    } catch (e) {
+      console.error('reddit fetch failed:', (e as Error).message);
+      return res.status(502).json({ error: 'reddit unavailable' });
+    }
+    try {
+      await r.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+    } catch (e) {
+      console.warn('reddit: cache write failed:', (e as Error).message);
+    }
+    res.setHeader('X-Cache', 'MISS');
   }
 
-  try {
-    await r.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
-  } catch (e) {
-    console.warn('reddit: cache write failed:', (e as Error).message);
-  }
-
-  res.setHeader('X-Cache', 'MISS');
-  return res.status(200).json(result);
+  return res.status(200).json({ ...result, queryOverride });
 }
