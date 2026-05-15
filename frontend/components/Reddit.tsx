@@ -65,8 +65,6 @@ export default function Reddit({ postId }: RedditProps) {
 
   if (failed || !data || data.posts.length === 0) return null;
 
-  const searchUrl = `https://www.reddit.com/search/?q=${encodeURIComponent(data.query)}&sort=top`;
-
   const countLabel = data.posts.length === 1 ? 'recent reddit post' : 'recent reddit posts';
 
   return (
@@ -97,14 +95,6 @@ export default function Reddit({ postId }: RedditProps) {
           </li>
         ))}
       </ul>
-      <a
-        href={searchUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={styles.link}
-      >
-        View on Reddit →
-      </a>
     </aside>
   );
 }

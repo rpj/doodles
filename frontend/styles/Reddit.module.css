@@ -81,24 +81,6 @@
   white-space: nowrap;
 }
 
-.link {
-  align-self: flex-end;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent-color);
-  border-bottom: 1px solid var(--hairline-strong);
-  padding-bottom: 1px;
-  transition: color 0.2s ease, border-color 0.2s ease;
-  white-space: nowrap;
-}
-
-.link:hover {
-  color: var(--accent-hover);
-  border-bottom-color: var(--accent-color);
-}
-
 @media (max-width: 640px) {
   .reddit {
     padding: 0.625rem 1rem;

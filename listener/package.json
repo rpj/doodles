@@ -10,6 +10,7 @@
     "apply-overrides": "npx ts-node apply-overrides.ts",
     "set-override": "npx ts-node set-override.ts",
     "fetch-prices": "npx ts-node fetch-product-prices.ts",
+    "reddit-query": "npx ts-node --transpile-only reddit-query.ts",
     "watch-stats": "npx ts-node watch-stats.ts",
     "clear-redis": "npx ts-node clear-redis.ts"
   },

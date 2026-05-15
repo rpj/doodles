@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getPostById, getFullPostById, getWatchMeta, Post, WatchMeta } from '../../../lib/redis';
+import { getPostById, getFullPostById, getWatchMeta, getHeroImageIndex, Post, WatchMeta } from '../../../lib/redis';
 import { useTheme } from '../../../contexts/ThemeContext';
 import styles from '../../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../../lib/utils';
@@ -24,9 +24,14 @@ interface PostPageProps {
   // which always carries an #imageN suffix because the listener stores each
   // image as its own entry (getFullPostById merges them but keeps one URI).
   isOverview: boolean;
+  // Index into `post.imageUrls` of the hero image — usually 0 unless an
+  // override is set in __doodles:hero-overrides. On the overview page we
+  // render the hero first, then the cards (Pricing/Reddit), then the rest
+  // of the images. Indices in click-through links are unchanged.
+  heroImageIndex: number;
 }
 
-export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta, isOverview }: PostPageProps) {
+export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, numHandlesToWatch, watchMeta, isOverview, heroImageIndex }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -155,8 +160,12 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
               hasMultipleImages ? <div className={styles.text}>{cleanedText()}</div> : null
             )}
 
-            <div className={styles.imageContainer}>
-              {post.imageUrls.map((url, index) => {
+            {(() => {
+              // Render one image — clickable to its `#imageN` view on multi-image
+              // posts, plain on single-image posts. `index` is always the post's
+              // ORIGINAL index in imageUrls so the click-through URL stays
+              // correct even when the hero is not image0.
+              const renderImage = (url: string, index: number) => {
                 const imageLink = `/${handle}/post/${encodeURIComponent(basePostId + '#image' + index)}`;
                 const ImageContent = (
                   <Image
@@ -165,11 +174,9 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
                     width={800}
                     height={800}
                     className={styles.image}
-                    priority
+                    priority={index === heroImageIndex}
                   />
                 );
-
-                // If multi-image view, make each image clickable to its individual page
                 return (
                   <div key={index} className={styles.imageWrapper}>
                     {hasMultipleImages ? (
@@ -181,17 +188,35 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
                     )}
                   </div>
                 );
-              })}
-            </div>
+              };
 
-            {watchMeta?.brand && watchMeta.model &&
-              watchMeta.kind === 'unique-watch' &&
-              isOverview && (
+              const heroIdx = Math.min(heroImageIndex, post.imageUrls.length - 1);
+              const cards = watchMeta?.brand && watchMeta.model &&
+                watchMeta.kind === 'unique-watch' &&
+                isOverview && (
+                  <>
+                    <Pricing postId={basePostId} />
+                    <Reddit postId={basePostId} />
+                  </>
+                );
+
+              // Page flow: hero image → cards → rest of images.
+              return (
                 <>
-                  <Pricing postId={basePostId} />
-                  <Reddit postId={basePostId} />
+                  <div className={styles.imageContainer}>
+                    {renderImage(post.imageUrls[heroIdx], heroIdx)}
+                  </div>
+                  {cards}
+                  {hasMultipleImages && (
+                    <div className={styles.imageContainer}>
+                      {post.imageUrls.map((url, index) =>
+                        index === heroIdx ? null : renderImage(url, index),
+                      )}
+                    </div>
+                  )}
                 </>
-              )}
+              );
+            })()}
 
             <div className={styles.content}>
               {(
@@ -254,6 +279,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
     const basePostId = decodedId.split('#')[0];
     const watchMeta = post ? await getWatchMeta(basePostId) : null;
+    const heroImageIndex = post ? await getHeroImageIndex(basePostId) : 0;
 
     return {
       props: {
@@ -263,6 +289,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         numHandlesToWatch,
         watchMeta,
         isOverview: !hasImageSuffix,
+        heroImageIndex,
       },
     };
   } catch (error) {
@@ -275,6 +302,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         numHandlesToWatch: 0,
         watchMeta: null,
         isOverview: false,
+        heroImageIndex: 0,
       },
     };
   }

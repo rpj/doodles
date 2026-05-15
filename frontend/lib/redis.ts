@@ -237,6 +237,20 @@ export async function getAllPosts(handle?: string): Promise<Post[]> {
 }
 
 /**
+ * Read the hero-image override for a base post ID. Returns the image
+ * index to feature (0 means "no override / use the first image"). The
+ * post detail page uses this to decide which image to place above the
+ * pricing/reddit cards in the page flow.
+ */
+export async function getHeroImageIndex(basePostId: string): Promise<number> {
+  const client = getRedisClient();
+  const v = await client.hget('__doodles:hero-overrides', basePostId);
+  if (v == null) return 0;
+  const idx = parseInt(v, 10);
+  return !isNaN(idx) && idx > 0 ? idx : 0;
+}
+
+/**
  * Read the watch-classifier metadata for a single base post ID. Returns null
  * if the classifier hasn't run on this post yet.
  */

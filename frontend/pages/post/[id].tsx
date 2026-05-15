@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { GetServerSideProps } from 'next';
-import { getPostById, getFullPostById, getWatchMeta, Post, WatchMeta } from '../../lib/redis';
+import { getPostById, getFullPostById, getWatchMeta, getHeroImageIndex, Post, WatchMeta } from '../../lib/redis';
 import { useTheme } from '../../contexts/ThemeContext';
 import styles from '../../styles/Post.module.css';
 import { getPostIdFromUri } from '../../lib/utils';
@@ -20,9 +20,11 @@ interface PostPageProps {
   // True iff the URL was `/post/<basePostId>` rather than `/post/<basePostId>#imageN`.
   // post.uri is unreliable here — see the handle page for the explanation.
   isOverview: boolean;
+  // See the handle page; same semantics.
+  heroImageIndex: number;
 }
 
-export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta, isOverview }: PostPageProps) {
+export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMeta, isOverview, heroImageIndex }: PostPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -101,8 +103,8 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
           </Link>
           
           <article className={styles.post}>
-            <div className={styles.imageContainer}>
-              {post.imageUrls.map((url, index) => {
+            {(() => {
+              const renderImage = (url: string, index: number) => {
                 const imageLink = `/post/${encodeURIComponent(basePostId + '#image' + index)}?ref=${encodeURIComponent(backUrl)}`;
                 const ImageContent = (
                   <Image
@@ -111,11 +113,9 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
                     width={800}
                     height={800}
                     className={styles.image}
-                    priority
+                    priority={index === heroImageIndex}
                   />
                 );
-
-                // If multi-image view, make each image clickable to its individual page
                 return (
                   <div key={index} className={styles.imageWrapper}>
                     {hasMultipleImages ? (
@@ -127,17 +127,34 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
                     )}
                   </div>
                 );
-              })}
-            </div>
+              };
 
-            {watchMeta?.brand && watchMeta.model &&
-              watchMeta.kind === 'unique-watch' &&
-              isOverview && (
+              const heroIdx = Math.min(heroImageIndex, post.imageUrls.length - 1);
+              const cards = watchMeta?.brand && watchMeta.model &&
+                watchMeta.kind === 'unique-watch' &&
+                isOverview && (
+                  <>
+                    <Pricing postId={basePostId} />
+                    <Reddit postId={basePostId} />
+                  </>
+                );
+
+              return (
                 <>
-                  <Pricing postId={basePostId} />
-                  <Reddit postId={basePostId} />
+                  <div className={styles.imageContainer}>
+                    {renderImage(post.imageUrls[heroIdx], heroIdx)}
+                  </div>
+                  {cards}
+                  {hasMultipleImages && (
+                    <div className={styles.imageContainer}>
+                      {post.imageUrls.map((url, index) =>
+                        index === heroIdx ? null : renderImage(url, index),
+                      )}
+                    </div>
+                  )}
                 </>
-              )}
+              );
+            })()}
 
             <div className={styles.content}>
               {cleanText && (
@@ -199,6 +216,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
     const basePostId = decodedId.split('#')[0];
     const watchMeta = post ? await getWatchMeta(basePostId) : null;
+    const heroImageIndex = post ? await getHeroImageIndex(basePostId) : 0;
 
     return {
       props: {
@@ -207,6 +225,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         hashtagWithoutPrefix,
         watchMeta,
         isOverview: !hasImageSuffix,
+        heroImageIndex,
       },
     };
   } catch (error) {
@@ -218,6 +237,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         hashtagWithoutPrefix,
         watchMeta: null,
         isOverview: false,
+        heroImageIndex: 0,
       },
     };
   }
