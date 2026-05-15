@@ -27,10 +27,22 @@
  * "card unavailable" and the component renders nothing.
  */
 
+import { Redis } from 'ioredis';
+
 const ARCTIC_BASE = 'https://arctic-shift.photon-reddit.com/api';
 const PULLPUSH_BASE = 'https://api.pullpush.io/reddit/search';
 const USER_AGENT =
   'ryanswatches-reddit-card/1.0 (+https://ryanswatches.com)';
+
+// Operator-configurable list of subreddits to query when Arctic Shift is
+// the active backend. See README "Reddit Card" section.
+const REDDIT_SUBREDDITS_KEY = '__doodles:reddit-subreddits';
+const DEFAULT_FALLBACK_SUBREDDITS = [
+  'Watches',
+  'MicrobrandWatches',
+  'VintageWatches',
+  'JapaneseWatches',
+];
 
 const FETCH_LIMIT = 25;   // pull a bit of headroom; we filter + cap to 3 for display
 const RETURN_LIMIT = 3;
@@ -132,12 +144,37 @@ async function fetchWithTimeout(url: URL): Promise<Response> {
   }
 }
 
-// Arctic's `title` search requires a subreddit or author constraint, so
-// the fallback narrows to r/Watches — the biggest watch sub catches most
-// of the popular discussion even though it misses brand-specific subs.
-const ARCTIC_FALLBACK_SUBREDDIT = 'Watches';
+// Local Redis client for reading the operator-configured subreddit list.
+// Module-scope so we don't open a new connection per request.
+let redisClient: Redis | null = null;
+function getRedis(): Redis {
+  if (!redisClient) {
+    redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+  }
+  return redisClient;
+}
 
-async function fetchArctic(query: string): Promise<RawPost[]> {
+/**
+ * Read the configured Arctic Shift fallback subreddit list from
+ * `__doodles:reddit-subreddits` (Redis list, oldest first). Strips
+ * optional `r/` prefixes and blank entries. Falls back to a hardcoded
+ * default if the key is empty or Redis is unreachable, so the card
+ * still works on a fresh install.
+ */
+async function loadFallbackSubreddits(): Promise<string[]> {
+  try {
+    const items = await getRedis().lrange(REDDIT_SUBREDDITS_KEY, 0, -1);
+    const cleaned = items
+      .map((s) => s.trim().replace(/^r\//i, ''))
+      .filter((s) => s.length > 0);
+    if (cleaned.length > 0) return cleaned;
+  } catch (e) {
+    console.warn(`[reddit] subreddit-list Redis read failed: ${(e as Error).message}`);
+  }
+  return DEFAULT_FALLBACK_SUBREDDITS;
+}
+
+async function fetchArcticOneSub(query: string, subreddit: string): Promise<RawPost[]> {
   if (shouldSkipArctic()) {
     throw new Error(
       `Arctic Shift skipped: ${arcticRateLimit.remaining} tokens left, ` +
@@ -146,7 +183,7 @@ async function fetchArctic(query: string): Promise<RawPost[]> {
   }
   const url = new URL(`${ARCTIC_BASE}/posts/search`);
   url.searchParams.set('title', query);
-  url.searchParams.set('subreddit', ARCTIC_FALLBACK_SUBREDDIT);
+  url.searchParams.set('subreddit', subreddit);
   url.searchParams.set('limit', String(FETCH_LIMIT));
   url.searchParams.set('sort', 'desc');
 
@@ -169,6 +206,47 @@ async function fetchArctic(query: string): Promise<RawPost[]> {
   }
   const payload = await res.json();
   return Array.isArray(payload?.data) ? payload.data : [];
+}
+
+/**
+ * Query Arctic Shift across every operator-configured subreddit, then
+ * merge + dedupe by post ID. Stops early if the rate-limit floor trips
+ * mid-iteration. Throws if every subreddit call failed; an empty merged
+ * result with at least one successful call is treated as "backend OK,
+ * just no posts" so the caller doesn't fall back further.
+ */
+async function fetchArctic(query: string): Promise<RawPost[]> {
+  const subs = await loadFallbackSubreddits();
+  const merged: RawPost[] = [];
+  const seenIds = new Set<string>();
+  const errors: string[] = [];
+  let anySucceeded = false;
+
+  for (const sub of subs) {
+    if (shouldSkipArctic()) {
+      errors.push(`r/${sub}: rate-limit floor hit, stopping iteration`);
+      break;
+    }
+    try {
+      const posts = await fetchArcticOneSub(query, sub);
+      anySucceeded = true;
+      for (const p of posts) {
+        if (p.id && !seenIds.has(p.id)) {
+          seenIds.add(p.id);
+          merged.push(p);
+        }
+      }
+    } catch (e) {
+      errors.push(`r/${sub}: ${(e as Error).message}`);
+    }
+  }
+
+  if (!anySucceeded) {
+    throw new Error(
+      `Arctic Shift: all ${subs.length} subreddit queries failed (${errors.join('; ')})`,
+    );
+  }
+  return merged;
 }
 
 async function fetchPullPush(query: string): Promise<RawPost[]> {

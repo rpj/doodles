@@ -404,6 +404,50 @@ until you manually `HDEL` it.
 follow-on page resolves to the canonical's `basePostId` before looking
 up overrides and prices, so one override entry covers the whole family.
 
+### Reddit Card
+
+The per-post Reddit card surfaces 3 selected discussions about each watch.
+Backend strategy: PullPush primary (supports site-wide title search via
+`q`), Arctic Shift fallback (its `title` search requires pairing with a
+subreddit, so we fan out across an operator-configured list).
+
+**Configured subreddit list** — `__doodles:reddit-subreddits` is a Redis
+list (oldest first) of subreddit names to query when Arctic Shift is the
+active backend. Each entry is one subreddit name, with or without an
+`r/` prefix. When PullPush succeeds the list isn't read; when PullPush
+fails the lib iterates the list, deduplicates by post ID, and merges —
+broader coverage than a single sub for the long-tail microbrand queries
+that benefit most from the fallback.
+
+```bash
+# Inspect
+redis-cli LRANGE __doodles:reddit-subreddits 0 -1
+
+# Append a sub
+redis-cli RPUSH __doodles:reddit-subreddits AutomaticWatches
+
+# Remove a sub (LREM count=0 means "remove all matching")
+redis-cli LREM __doodles:reddit-subreddits 0 AutomaticWatches
+
+# Reseed from scratch
+redis-cli DEL __doodles:reddit-subreddits
+redis-cli RPUSH __doodles:reddit-subreddits Watches MicrobrandWatches VintageWatches JapaneseWatches
+```
+
+If the key is missing or empty (e.g. fresh install), the lib falls back
+to the same four defaults: `Watches`, `MicrobrandWatches`,
+`VintageWatches`, `JapaneseWatches`. Changes take effect on the next
+cache-miss fetch — to apply immediately, also flush the per-query cache:
+
+```bash
+redis-cli --scan --pattern '__doodles:reddit-search:*' | xargs -r redis-cli DEL
+```
+
+The `reddit_query` partial override (see "Watch Classification
+Overrides") composes with this list — the override changes the *query*
+sent to each subreddit; the list controls *which* subreddits get the
+query.
+
 ### Tools (./tools/)
 ```bash
 # Query specific post data
