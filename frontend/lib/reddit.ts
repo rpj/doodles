@@ -83,6 +83,14 @@ interface RawPost {
   score?: number;
   num_comments?: number;
   created_utc?: number | string;
+  // Removal / deletion signals — used by `isRemoved()` to drop tombstones
+  // during normalization. Caveat: Arctic Shift's archive is frozen at
+  // index time, so a post deleted on Reddit *after* indexing still shows
+  // up as live here. Catches the in-archive removals only.
+  selftext?: string;
+  removed_by_category?: string | null;
+  removed_by?: string | null;
+  is_robot_indexable?: boolean;
 }
 
 // ---- Rate-limit tracking (Arctic Shift) ----
@@ -277,10 +285,23 @@ function absolutePermalink(p: string | undefined): string {
   return `https://www.reddit.com/${p}`;
 }
 
+// True if any of Arctic's removal flags say this post is gone. Catches
+// in-archive removals (mod-removed during indexing window, account
+// deletions, etc.) but not after-archive deletions — Reddit may show
+// the post as removed even when Arctic's snapshot was taken pre-removal.
+function isRemoved(r: RawPost): boolean {
+  if (r.author === '[deleted]' || r.author === '[removed]') return true;
+  if (r.selftext === '[deleted]' || r.selftext === '[removed]') return true;
+  if (r.removed_by_category != null) return true;
+  if (r.is_robot_indexable === false) return true;
+  return false;
+}
+
 function normalize(raw: RawPost[]): RedditPost[] {
   const out: RedditPost[] = [];
   for (const r of raw) {
     if (typeof r.title !== 'string' || typeof r.permalink !== 'string') continue;
+    if (isRemoved(r)) continue;
     const createdNum =
       typeof r.created_utc === 'string' ? Number(r.created_utc) : r.created_utc;
     out.push({
@@ -300,6 +321,39 @@ function normalize(raw: RawPost[]): RedditPost[] {
   return out;
 }
 
+// Collapse `[New Watch] SRPL31k ... Nato` and `[New Watch] SRPL31k ... NATO`
+// into the same dedup key. Lowercase + strip non-alphanumeric + collapse
+// whitespace — coarse on purpose so near-dupes from the same author group
+// together even with capitalization/punctuation drift.
+function titleDedupKey(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+// Drop near-duplicate posts from the same author. When a user spams three
+// versions of the same post within minutes (which is exactly the case
+// Reddit mods nuke as dupes — leaving Arctic's archive with a triplet,
+// two of which are now removed on the live site even though Arctic
+// doesn't know it), keep only the highest-scoring entry. Posts from
+// different authors with similar titles are intentionally NOT collapsed —
+// those are legitimately different perspectives on the same watch.
+function dedupByAuthorAndTitle(posts: RedditPost[]): RedditPost[] {
+  const bestByKey = new Map<string, RedditPost>();
+  for (const p of posts) {
+    if (!p.author) {
+      // No author to group on — keep the post unconditionally under a
+      // synthetic per-post key.
+      bestByKey.set(`__solo__:${p.id || p.permalink}`, p);
+      continue;
+    }
+    const key = `${p.author}::${titleDedupKey(p.title)}`;
+    const existing = bestByKey.get(key);
+    if (!existing || p.score > existing.score) {
+      bestByKey.set(key, p);
+    }
+  }
+  return [...bestByKey.values()];
+}
+
 function filterAndRank(posts: RedditPost[], query: string): RedditPost[] {
   // Tokenize the query for the relevance check below. Words shorter than 2
   // chars are dropped (eBay-style "5" tokens etc. — meaningless on Reddit).
@@ -309,22 +363,29 @@ function filterAndRank(posts: RedditPost[], query: string): RedditPost[] {
     .map((w) => w.replace(/^["+\-()]+|["+\-()]+$/g, '')) // strip eBay-style modifiers if reused
     .filter((w) => w.length > 1);
 
+  // Drop deleted-author (normalize() catches most of this; belt-and-braces
+  // in case a raw post sneaks through with a deletion shape we didn't see)
+  // and downvoted-into-the-ground posts. Title must contain at least one
+  // query word so Arctic's looser matches don't surface noise.
   const filtered = posts
     .filter((p) => p.author && p.author !== '[deleted]' && p.author !== '[removed]')
     .filter((p) => p.score >= MIN_SCORE)
     .filter((p) => {
       if (queryWords.length === 0) return true;
       const titleLower = p.title.toLowerCase();
-      // Require at least one query word in the title — drops Arctic's
-      // looser "any-of" matches that surface noise.
       return queryWords.some((w) => titleLower.includes(w));
     });
+
+  // Collapse same-author near-duplicate titles (mod-removed dupe-spam
+  // pattern — see dedupByAuthorAndTitle). Happens BEFORE the top-by-score
+  // slice so we don't waste a slot on a tombstone twin.
+  const deduped = dedupByAuthorAndTitle(filtered);
 
   // Two-stage ordering: pick the top RETURN_LIMIT by *score* (so the card
   // surfaces high-signal posts, not whichever bot dropped a [WTS] yesterday),
   // then re-sort that small slice by *date* desc so the card reads
   // most-recent-first to the viewer.
-  return filtered
+  return deduped
     .sort((a, b) => b.score - a.score)
     .slice(0, RETURN_LIMIT)
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));

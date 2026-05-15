@@ -65,7 +65,13 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// process.exit on success because the lib's module-scope Redis client
+// keeps the event loop alive (the subreddit-list lookup opens a
+// connection that has no graceful-close hook from this side). The CLI is
+// one-shot, so exit forcibly once we've printed results.
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
