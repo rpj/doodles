@@ -1,6 +1,11 @@
 # Dependencies
 node_modules/
 
+# Editor swap / temp files
+*.swp
+*.swo
+*~
+
 # Next.js build output
 .next/
 next-env.d.ts
