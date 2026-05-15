@@ -65,7 +65,7 @@ export default function Reddit({ postId }: RedditProps) {
 
   if (failed || !data || data.posts.length === 0) return null;
 
-  const countLabel = data.posts.length === 1 ? 'recent reddit post' : 'recent reddit posts';
+  const countLabel = data.posts.length === 1 ? 'selected reddit post' : 'selected reddit posts';
 
   return (
     <aside className={styles.reddit} aria-label="Recent Reddit posts">

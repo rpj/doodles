@@ -230,7 +230,7 @@ function filterAndRank(posts: RedditPost[], query: string): RedditPost[] {
     .map((w) => w.replace(/^["+\-()]+|["+\-()]+$/g, '')) // strip eBay-style modifiers if reused
     .filter((w) => w.length > 1);
 
-  return posts
+  const filtered = posts
     .filter((p) => p.author && p.author !== '[deleted]' && p.author !== '[removed]')
     .filter((p) => p.score >= MIN_SCORE)
     .filter((p) => {
@@ -239,9 +239,16 @@ function filterAndRank(posts: RedditPost[], query: string): RedditPost[] {
       // Require at least one query word in the title — drops Arctic's
       // looser "any-of" matches that surface noise.
       return queryWords.some((w) => titleLower.includes(w));
-    })
+    });
+
+  // Two-stage ordering: pick the top RETURN_LIMIT by *score* (so the card
+  // surfaces high-signal posts, not whichever bot dropped a [WTS] yesterday),
+  // then re-sort that small slice by *date* desc so the card reads
+  // most-recent-first to the viewer.
+  return filtered
     .sort((a, b) => b.score - a.score)
-    .slice(0, RETURN_LIMIT);
+    .slice(0, RETURN_LIMIT)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
 }
 
 // ---- Public entry point ----
