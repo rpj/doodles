@@ -191,14 +191,22 @@ export default function HandlePostPage({ post, handle, hashtagWithoutPrefix, num
               };
 
               const heroIdx = Math.min(heroImageIndex, post.imageUrls.length - 1);
-              const cards = watchMeta?.brand && watchMeta.model &&
-                watchMeta.kind === 'unique-watch' &&
-                isOverview && (
-                  <>
-                    <Pricing postId={basePostId} />
-                    <Reddit postId={basePostId} />
-                  </>
-                );
+              // Pricing renders only on canonical (unique-watch) overviews.
+              // Reddit also renders on follow-ons, but the query/override
+              // lookup needs to resolve to the canonical's basePostId — the
+              // follow-on's own meta doesn't carry the reddit_query override.
+              const showCards = !!watchMeta?.brand && !!watchMeta.model && isOverview;
+              const isUnique = watchMeta?.kind === 'unique-watch';
+              const isFollowOn = watchMeta?.kind === 'follow-on';
+              const redditPostId = isFollowOn && watchMeta?.references_post_id
+                ? watchMeta.references_post_id
+                : basePostId;
+              const cards = showCards && (
+                <>
+                  {isUnique && <Pricing postId={basePostId} />}
+                  {(isUnique || isFollowOn) && <Reddit postId={redditPostId} />}
+                </>
+              );
 
               // Page flow: hero image → cards → rest of images.
               return (

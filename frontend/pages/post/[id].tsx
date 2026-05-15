@@ -130,14 +130,20 @@ export default function PostPage({ post, backUrl, hashtagWithoutPrefix, watchMet
               };
 
               const heroIdx = Math.min(heroImageIndex, post.imageUrls.length - 1);
-              const cards = watchMeta?.brand && watchMeta.model &&
-                watchMeta.kind === 'unique-watch' &&
-                isOverview && (
-                  <>
-                    <Pricing postId={basePostId} />
-                    <Reddit postId={basePostId} />
-                  </>
-                );
+              // Pricing: canonical only. Reddit: canonical + follow-on (resolved
+              // to the canonical's basePostId so reddit_query overrides apply).
+              const showCards = !!watchMeta?.brand && !!watchMeta.model && isOverview;
+              const isUnique = watchMeta?.kind === 'unique-watch';
+              const isFollowOn = watchMeta?.kind === 'follow-on';
+              const redditPostId = isFollowOn && watchMeta?.references_post_id
+                ? watchMeta.references_post_id
+                : basePostId;
+              const cards = showCards && (
+                <>
+                  {isUnique && <Pricing postId={basePostId} />}
+                  {(isUnique || isFollowOn) && <Reddit postId={redditPostId} />}
+                </>
+              );
 
               return (
                 <>
