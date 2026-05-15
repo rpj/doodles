@@ -1,23 +1,24 @@
 /**
  * Reddit search wrapper for the per-post "Recent Reddit posts" card.
  *
- * Primary backend: PullPush (https://api.pullpush.io) — supports site-wide
- *   title search via `q`, which is what we want (watch discussion is
- *   scattered across r/Watches, r/WatchExchange, r/rolex, brand-specific
- *   subs, etc.). Pushshift-derived archive; sometimes slow, occasionally
- *   flaky, no documented rate limit headers but it's been the community's
- *   open-Reddit-search backstop for years.
- *
- * Fallback backend: Arctic Shift (https://arctic-shift.photon-reddit.com)
- *   — newer, faster archive with explicit X-RateLimit-Remaining /
+ * Primary backend: Arctic Shift (https://arctic-shift.photon-reddit.com)
+ *   — newer archive with explicit X-RateLimit-Remaining /
  *     X-RateLimit-Reset headers (docs:
  *     github.com/ArthurHeitmann/arctic_shift/tree/master/api). Its
  *     `title` search REQUIRES pairing with a subreddit or author, so we
- *     restrict the fallback to r/Watches — narrower coverage than
- *     PullPush, but the biggest watch sub catches most popular pieces.
- *     We track its rate-limit headers and proactively skip Arctic when
- *     remaining drops below a small floor; the failure mode of *being*
- *     rate-limited is worse than missing the fallback for one call.
+ *     fan out across the operator-configured list at
+ *     __doodles:reddit-subreddits (see README "Reddit Card"). Picked
+ *     primary because (a) its score values are kept current (PullPush
+ *     freezes scores at index time, which makes a `sort_type=score`
+ *     selection systematically prefer 2-3-year-old posts over recent
+ *     ones), and (b) it serves more-recent indexed posts in general.
+ *     We track its rate-limit headers and proactively skip a sub query
+ *     when remaining drops below a small floor.
+ *
+ * Fallback backend: PullPush (https://api.pullpush.io) — Pushshift-
+ *   derived; supports site-wide title search via `q` (no subreddit
+ *   constraint needed). Slower and its scores lag, but it's a solid
+ *   safety net when Arctic Shift is down or rate-limit-exhausted.
  *
  * Posts only (`kind=post`), not comments — comments are noisier and the
  * widget shows titles for scannability.
@@ -339,20 +340,20 @@ export async function searchPosts(query: string): Promise<RedditSearchResult> {
 
   let raw: RawPost[];
   let backend: 'arctic' | 'pullpush';
-  let pullPushErr: Error | null = null;
+  let arcticErr: Error | null = null;
 
   try {
-    raw = await fetchPullPush(trimmed);
-    backend = 'pullpush';
+    raw = await fetchArctic(trimmed);
+    backend = 'arctic';
   } catch (e) {
-    pullPushErr = e as Error;
-    console.warn(`[reddit] PullPush failed (${pullPushErr.message}); falling back to Arctic Shift (r/${ARCTIC_FALLBACK_SUBREDDIT})`);
+    arcticErr = e as Error;
+    console.warn(`[reddit] Arctic Shift failed (${arcticErr.message}); falling back to PullPush (site-wide)`);
     try {
-      raw = await fetchArctic(trimmed);
-      backend = 'arctic';
+      raw = await fetchPullPush(trimmed);
+      backend = 'pullpush';
     } catch (e2) {
       throw new Error(
-        `Both Reddit backends failed (pullpush: ${pullPushErr.message}; arctic: ${(e2 as Error).message})`,
+        `Both Reddit backends failed (arctic: ${arcticErr.message}; pullpush: ${(e2 as Error).message})`,
       );
     }
   }

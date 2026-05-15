@@ -407,17 +407,19 @@ up overrides and prices, so one override entry covers the whole family.
 ### Reddit Card
 
 The per-post Reddit card surfaces 3 selected discussions about each watch.
-Backend strategy: PullPush primary (supports site-wide title search via
-`q`), Arctic Shift fallback (its `title` search requires pairing with a
-subreddit, so we fan out across an operator-configured list).
+Backend strategy: Arctic Shift primary (current scores and recent posts,
+fanned out across an operator-configured subreddit list since its
+`title` search requires pairing with a subreddit), PullPush fallback
+(site-wide title search via `q`, used when Arctic Shift is down or
+rate-limit-exhausted).
 
 **Configured subreddit list** — `__doodles:reddit-subreddits` is a Redis
 list (oldest first) of subreddit names to query when Arctic Shift is the
-active backend. Each entry is one subreddit name, with or without an
-`r/` prefix. When PullPush succeeds the list isn't read; when PullPush
-fails the lib iterates the list, deduplicates by post ID, and merges —
-broader coverage than a single sub for the long-tail microbrand queries
-that benefit most from the fallback.
+active backend (which is the primary path). Each entry is one subreddit
+name, with or without an `r/` prefix. The lib iterates the list,
+deduplicates by post ID across subreddits, and merges into a single
+result set before filtering — broader coverage than any one sub for the
+long-tail microbrand queries that benefit most from this card.
 
 ```bash
 # Inspect
